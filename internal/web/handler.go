@@ -17,7 +17,6 @@ import (
 	"cloudprobe/internal/agent"
 	"cloudprobe/internal/api"
 	"cloudprobe/internal/auth"
-	"cloudprobe/internal/cache"
 	"cloudprobe/internal/database"
 	"cloudprobe/internal/model"
 	"cloudprobe/internal/proxy"
@@ -26,7 +25,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // ==================== Auth Handlers ====================
@@ -655,8 +653,8 @@ func (s *Server) handleUpdateSettings(c *gin.Context) {
 	// 应用运行时配置更新（注意：重启后从配置文件读取）
 	s.cfg.Server.Mode = req.Server.Mode
 	s.cfg.Server.Port = req.Server.Port
-	s.cfg.JWT.AccessExpire = req.JWT.AccessExpire
-	s.cfg.JWT.RefreshExpire = req.JWT.RefreshExpire
+	s.cfg.JWT.ExpireHours = time.Duration(req.JWT.AccessExpire)
+	s.cfg.JWT.RefreshHours = time.Duration(req.JWT.RefreshExpire)
 	s.cfg.JWT.Secret = req.JWT.Secret
 	s.cfg.SMTP.Host = req.SMTP.Host
 	s.cfg.SMTP.Port = req.SMTP.Port
