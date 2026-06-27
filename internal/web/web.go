@@ -13,6 +13,7 @@ import (
 	"cloudprobe/internal/config"
 	"cloudprobe/internal/database"
 	"cloudprobe/internal/service"
+	"cloudprobe/internal/task"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -20,11 +21,12 @@ import (
 
 // Server Web服务器
 type Server struct {
-	cfg          *config.Config
-	router       *gin.Engine
-	http         *http.Server
-	logger       *zap.Logger
-	alertEngine  *service.AlertEngine
+	cfg         *config.Config
+	router      *gin.Engine
+	http        *http.Server
+	logger      *zap.Logger
+	alertEngine *service.AlertEngine
+	scheduler   *task.Scheduler
 }
 
 // NewServer 创建Web服务器
@@ -64,11 +66,16 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	router.Use(api.LoggerMiddleware(logger))
 	router.Use(api.CORSMiddleware())
 
+	// 初始化定时任务调度器
+	scheduler := task.NewScheduler(logger)
+	scheduler.Start()
+
 	s := &Server{
 		cfg:         cfg,
 		router:      router,
 		logger:      logger,
 		alertEngine: alertEngine,
+		scheduler:   scheduler,
 	}
 
 	s.initRoutes()
@@ -163,6 +170,9 @@ func (s *Server) Start() error {
 
 // Stop 停止服务器
 func (s *Server) Stop() {
+	if s.scheduler != nil {
+		s.scheduler.Stop()
+	}
 	if s.alertEngine != nil {
 		s.alertEngine.Stop()
 	}
