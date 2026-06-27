@@ -1,7 +1,7 @@
 #!/bin/bash
 # CloudProbe 宝塔面板一键部署脚本
-# 适用环境: Linux + 已安装宝塔面板
-# 配置: 8C8G 云服务器
+# 适用环境: Linux + 已安装宝塔面板 (8C8G+)
+# 功能: 自动安装Go -> 编译检查 -> Docker构建部署
 
 set -e
 
@@ -15,102 +15,125 @@ INSTALL_DIR="/www/wwwroot/${PROJECT_NAME}"
 GITHUB_REPO="https://github.com/dennis926/cloudprobe.git"
 GITEE_REPO="https://gitee.com/den7hon/cloudprobe.git"
 
-echo -e "${GREEN}=== CloudProbe 宝塔面板部署脚本 ===${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}  CloudProbe 宝塔面板一键部署脚本${NC}"
+echo -e "${GREEN}========================================${NC}"
 echo ""
 
 # 检测网络环境选择下载源
-echo -e "${YELLOW}[1/7] 检测网络环境...${NC}"
+echo -e "${YELLOW}[1/8] 检测网络环境...${NC}"
 if curl -s --max-time 3 https://github.com > /dev/null 2>&1; then
     REPO_URL="${GITHUB_REPO}"
-    echo -e "${GREEN}   海外网络，使用 GitHub 源${NC}"
+    GOPROXY_URL="https://proxy.golang.org,direct"
+    echo -e "${GREEN}   海外网络 -> GitHub + Go Proxy${NC}"
 else
     REPO_URL="${GITEE_REPO}"
-    echo -e "${GREEN}   国内网络，使用 Gitee 源${NC}"
+    GOPROXY_URL="https://goproxy.cn,direct"
+    echo -e "${GREEN}   国内网络 -> Gitee + goproxy.cn${NC}"
 fi
 
 # 检查 Docker
-echo -e "${YELLOW}[2/7] 检查 Docker 环境...${NC}"
+echo -e "${YELLOW}[2/8] 检查 Docker 环境...${NC}"
 if ! command -v docker &> /dev/null; then
-    echo -e "${RED}   Docker 未安装，请先安装 Docker${NC}"
-    echo "   宝塔面板 -> 软件商店 -> 搜索 Docker -> 安装"
+    echo -e "${RED}   Docker 未安装${NC}"
+    echo "   宝塔面板 -> 软件商店 -> Docker -> 安装"
     exit 1
 fi
-if ! command -v docker-compose &> /dev/null; then
+if ! docker compose version &> /dev/null 2>&1 && ! command -v docker-compose &> /dev/null; then
     echo -e "${RED}   Docker Compose 未安装${NC}"
-    echo "   安装命令: pip install docker-compose"
     exit 1
 fi
-echo -e "${GREEN}   Docker 环境正常${NC}"
+echo -e "${GREEN}   Docker $(docker --version | awk '{print $3}') OK${NC}"
 
 # 克隆代码
-echo -e "${YELLOW}[3/7] 克隆代码...${NC}"
+echo -e "${YELLOW}[3/8] 获取代码...${NC}"
 if [ -d "${INSTALL_DIR}" ]; then
-    echo -e "${YELLOW}   目录已存在，执行 git pull 更新...${NC}"
     cd "${INSTALL_DIR}"
+    git config pull.rebase false 2>/dev/null
     git pull origin main
 else
     git clone "${REPO_URL}" "${INSTALL_DIR}"
     cd "${INSTALL_DIR}"
 fi
-echo -e "${GREEN}   代码准备完成${NC}"
+echo -e "${GREEN}   代码就绪${NC}"
 
 # 创建数据目录
-echo -e "${YELLOW}[4/7] 创建数据目录...${NC}"
-mkdir -p "${INSTALL_DIR}/data"
-mkdir -p "${INSTALL_DIR}/config"
+echo -e "${YELLOW}[4/8] 创建数据目录...${NC}"
+mkdir -p "${INSTALL_DIR}/data" "${INSTALL_DIR}/config"
 
 # 检查端口占用
-echo -e "${YELLOW}[5/7] 检查端口占用...${NC}"
+echo -e "${YELLOW}[5/8] 检查端口占用...${NC}"
 CP_PORT=8090
-# 自动检测可用端口
 while ss -tlnp | grep -q ":${CP_PORT} "; do
-    echo -e "${YELLOW}   端口 ${CP_PORT} 已被占用，尝试 ${CP_PORT}+1...${NC}"
+    echo -e "${YELLOW}   端口 ${CP_PORT} 被占用，尝试 ${CP_PORT}+1${NC}"
     CP_PORT=$((CP_PORT + 1))
 done
-echo -e "${GREEN}   将使用端口 ${CP_PORT}${NC}"
-
-# 动态替换 docker-compose.bt.yml 中的端口
+echo -e "${GREEN}   使用端口 ${CP_PORT}${NC}"
 if [ "${CP_PORT}" != "8090" ]; then
     sed -i "s/127.0.0.1:8090:8000/127.0.0.1:${CP_PORT}:8000/" docker-compose.bt.yml
 fi
 
-# 启动服务
-echo -e "${YELLOW}[6/7] 构建并启动 CloudProbe...${NC}"
+# 安装 Go + 快速编译检查（秒级反馈，发现错误立即中止）
+echo -e "${YELLOW}[6/8] Go 编译检查...${NC}"
+if ! command -v go &> /dev/null; then
+    echo -e "${YELLOW}   安装 Go 1.22...${NC}"
+    GO_VERSION="1.22.0"
+    GO_ARCH=$(uname -m)
+    case "$GO_ARCH" in
+        x86_64)  GO_SUFFIX="amd64" ;;
+        aarch64) GO_SUFFIX="arm64" ;;
+        *)
+            echo -e "${RED}   不支持架构: $GO_ARCH${NC}"
+            exit 1
+            ;;
+    esac
+    wget -q -O /tmp/go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-${GO_SUFFIX}.tar.gz"
+    rm -rf /usr/local/go
+    tar -C /usr/local -xzf /tmp/go.tar.gz
+    rm -f /tmp/go.tar.gz
+    export PATH=$PATH:/usr/local/go/bin
+fi
+
+export GOPROXY="${GOPROXY_URL}"
+echo "   $(go version)"
+
+echo -e "${YELLOW}   下载依赖...${NC}"
+go mod tidy
+
+echo -e "${YELLOW}   编译 dashboard...${NC}"
+if CGO_ENABLED=0 go build -o /tmp/cloudprobe-dashboard ./cmd/dashboard 2>&1; then
+    echo -e "${GREEN}   编译通过${NC}"
+else
+    echo -e "${RED}   编译失败！请修复上方错误后重新运行此脚本${NC}"
+    exit 1
+fi
+rm -f /tmp/cloudprobe-dashboard
+
+# Docker 构建
+echo -e "${YELLOW}[7/8] Docker 构建...${NC}"
 docker-compose -f docker-compose.bt.yml up -d --build
 
-echo ""
-echo -e "${GREEN}   CloudProbe 服务已启动${NC}"
-echo ""
-
-# 等待数据库初始化
-echo -e "${YELLOW}[7/7] 等待数据库初始化...${NC}"
+# 等待服务就绪
+echo -e "${YELLOW}[8/8] 等待服务启动...${NC}"
 sleep 5
 for i in {1..30}; do
     if docker-compose -f docker-compose.bt.yml logs dashboard 2>/dev/null | grep -q "Server starting"; then
         echo -e "${GREEN}   Dashboard 启动成功${NC}"
         break
     fi
-    if [ $i -eq 30 ]; then
-        echo -e "${YELLOW}   启动可能还在进行中，请稍后查看日志${NC}"
-    fi
+    [ $i -eq 30 ] && echo -e "${YELLOW}   启动可能仍在进行，稍后检查日志${NC}"
     sleep 2
 done
 
 echo ""
-echo -e "${GREEN}=== 部署完成 ===${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}  部署完成！${NC}"
+echo -e "${GREEN}========================================${NC}"
 echo ""
-echo "访问方式:"
-echo "  1. 直接访问: http://你的服务器IP:${CP_PORT}"
-echo "  2. 宝塔反代: 在宝塔面板中设置域名反代到 127.0.0.1:${CP_PORT}"
-echo ""
-echo "默认账号:"
-echo "  用户名: admin"
-echo "  密码:   admin"
+echo "访问: http://$(curl -s ifconfig.me):${CP_PORT}"
+echo "账号: admin / admin"
 echo ""
 echo "常用命令:"
-echo "  查看日志:   docker-compose -f ${INSTALL_DIR}/docker-compose.bt.yml logs -f dashboard"
-echo "  停止服务:   docker-compose -f ${INSTALL_DIR}/docker-compose.bt.yml down"
-echo "  重启服务:   docker-compose -f ${INSTALL_DIR}/docker-compose.bt.yml restart"
-echo "  查看状态:   docker-compose -f ${INSTALL_DIR}/docker-compose.bt.yml ps"
-echo ""
-echo -e "${YELLOW}提示: 建议通过宝塔面板设置域名 + SSL 反代访问，更安全${NC}"
+echo "  查看日志:  cd ${INSTALL_DIR} && docker-compose -f docker-compose.bt.yml logs -f dashboard"
+echo "  停止:      cd ${INSTALL_DIR} && docker-compose -f docker-compose.bt.yml down"
+echo "  更新:      cd ${INSTALL_DIR} && git pull origin main && bash scripts/deploy-bt.sh"
