@@ -16,8 +16,8 @@
         router
         class="sidebar-menu"
         background-color="transparent"
-        text-color="#94a3b8"
-        active-text-color="#38bdf8"
+        text-color="var(--cp-text-secondary)"
+        active-text-color="var(--cp-accent)"
         @select="onMenuSelect"
       >
         <el-menu-item index="/">
@@ -28,6 +28,11 @@
         <el-menu-item index="/servers">
           <el-icon><Server /></el-icon>
           <template #title>服务器</template>
+        </el-menu-item>
+
+        <el-menu-item index="/groups">
+          <el-icon><Folder /></el-icon>
+          <template #title>分组管理</template>
         </el-menu-item>
 
         <el-menu-item index="/alerts">
@@ -69,6 +74,14 @@
           <breadcrumb v-if="!isMobile" />
         </div>
         <div class="header-right">
+          <el-tooltip :content="theme === 'dark' ? '切换亮色' : theme === 'light' ? '切换暗色' : '跟随系统'" placement="bottom">
+            <el-button type="text" class="theme-btn" @click="toggleTheme">
+              <el-icon :size="18">
+                <Moon v-if="isDark" />
+                <Sunny v-else />
+              </el-icon>
+            </el-button>
+          </el-tooltip>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-avatar :size="isMobile ? 28 : 32" :icon="UserFilled" />
@@ -77,7 +90,9 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="logout">
+                <el-dropdown-item divided command="lang-zh-CN">中文</el-dropdown-item>
+                <el-dropdown-item command="lang-en-US">English</el-dropdown-item>
+                <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>
@@ -104,13 +119,18 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Monitor, Odometer, Server, Bell, Message, Switch, Setting,
-  Expand, Fold, UserFilled, ArrowDown, SwitchButton
+  Expand, Fold, UserFilled, ArrowDown, SwitchButton, Folder,
+  Sunny, Moon
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { useTheme } from '@/composables/useTheme'
+import { useI18n } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { theme, isDark, setTheme, toggleTheme } = useTheme()
+const { setLocale } = useI18n()
 const isCollapse = ref(false)
 const isMobile = ref(false)
 
@@ -133,6 +153,10 @@ const onMenuSelect = () => {
 }
 
 const handleCommand = async (command: string) => {
+  if (command.startsWith('lang-')) {
+    setLocale(command.replace('lang-', ''))
+    return
+  }
   if (command === 'logout') {
     try {
       await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
@@ -160,12 +184,12 @@ window.addEventListener('resize', checkMobile)
 <style scoped>
 .layout-container {
   min-height: 100vh;
-  background: #0f172a;
+  background: var(--cp-bg-primary);
 }
 
 .sidebar {
-  background: rgba(15, 23, 42, 0.95);
-  border-right: 1px solid #1e293b;
+  background: var(--cp-bg-card);
+  border-right: 1px solid var(--cp-border);
   display: flex;
   flex-direction: column;
   transition: width 0.3s;
@@ -189,7 +213,7 @@ window.addEventListener('resize', checkMobile)
 .sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--cp-overlay);
   z-index: 99;
 }
 
@@ -199,11 +223,11 @@ window.addEventListener('resize', checkMobile)
   align-items: center;
   padding: 0 20px;
   gap: 12px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--cp-border);
 }
 
 .sidebar-title {
-  color: #f1f5f9;
+  color: var(--cp-text-primary);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.5px;
@@ -216,11 +240,11 @@ window.addEventListener('resize', checkMobile)
 }
 
 .sidebar-menu :deep(.el-menu-item:hover) {
-  background: rgba(56, 189, 248, 0.08);
+  background: var(--cp-accent-bg);
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: rgba(56, 189, 248, 0.12);
+  background: var(--cp-accent-bg-strong);
 }
 
 .sidebar-footer {
@@ -228,20 +252,20 @@ window.addEventListener('resize', checkMobile)
   display: flex;
   align-items: center;
   justify-content: center;
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid var(--cp-border);
 }
 
 .collapse-btn {
-  color: #64748b;
+  color: var(--cp-text-muted);
 }
 
 .collapse-btn:hover {
-  color: #38bdf8;
+  color: var(--cp-accent);
 }
 
 .main-header {
-  background: rgba(15, 23, 42, 0.95);
-  border-bottom: 1px solid #1e293b;
+  background: var(--cp-bg-card);
+  border-bottom: 1px solid var(--cp-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -249,11 +273,11 @@ window.addEventListener('resize', checkMobile)
 }
 
 .mobile-menu-btn {
-  color: #94a3b8;
+  color: var(--cp-text-secondary);
   margin-right: 8px;
 }
 .mobile-menu-btn:hover {
-  color: #38bdf8;
+  color: var(--cp-accent);
 }
 
 .header-right {
@@ -261,19 +285,27 @@ window.addEventListener('resize', checkMobile)
   align-items: center;
 }
 
+.theme-btn {
+  color: var(--cp-text-secondary);
+  margin-right: 8px;
+}
+.theme-btn:hover {
+  color: var(--cp-accent);
+}
+
 .user-info {
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: #94a3b8;
+  color: var(--cp-text-secondary);
   padding: 4px 8px;
   border-radius: 8px;
   transition: background 0.2s;
 }
 
 .user-info:hover {
-  background: rgba(56, 189, 248, 0.08);
+  background: var(--cp-accent-bg);
 }
 
 .username {
@@ -282,7 +314,7 @@ window.addEventListener('resize', checkMobile)
 
 .main-content {
   padding: 20px;
-  background: #0f172a;
+  background: var(--cp-bg-primary);
 }
 
 .main-mobile {

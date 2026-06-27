@@ -103,6 +103,12 @@ export const api = {
   getSettings: () => request.get('/system/settings'),
   updateSettings: (data: any) => request.put('/system/settings', data),
 
+  // 分组
+  getGroups: (params?: any) => request.get('/groups', { params }),
+  createGroup: (data: any) => request.post('/groups', data),
+  updateGroup: (id: number, data: any) => request.put(`/groups/${id}`, data),
+  deleteGroup: (id: number) => request.delete(`/groups/${id}`),
+
   // 代理
   getProxyStatus: () => request.get('/proxy/status'),
   getProxyInbounds: () => request.get('/proxy/inbounds'),

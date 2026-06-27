@@ -17,6 +17,8 @@ import (
 	"cloudprobe/internal/task"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 )
 
@@ -104,6 +106,12 @@ func (s *Server) initRoutes() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	// Swagger 文档（需先执行 swag init -g cmd/dashboard/main.go -o docs 生成 docs 目录）
+	// 启用后取消下方注释并添加 _ "cloudprobe/docs" 到 import
+	if false {
+		s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
+
 	// API路由组
 	apiGroup := s.router.Group("/api/v1")
 	{
@@ -124,6 +132,12 @@ func (s *Server) initRoutes() {
 			authorized.POST("/servers", auth.AdminRequired(), s.handleCreateServer)
 			authorized.PUT("/servers/:id", auth.AdminRequired(), s.handleUpdateServer)
 			authorized.DELETE("/servers/:id", auth.AdminRequired(), s.handleDeleteServer)
+
+			// 服务器分组
+			authorized.GET("/groups", s.handleListGroups)
+			authorized.POST("/groups", auth.AdminRequired(), s.handleCreateGroup)
+			authorized.PUT("/groups/:id", auth.AdminRequired(), s.handleUpdateGroup)
+			authorized.DELETE("/groups/:id", auth.AdminRequired(), s.handleDeleteGroup)
 
 			// 监控数据
 			authorized.GET("/servers/:id/metrics", s.handleGetMetrics)

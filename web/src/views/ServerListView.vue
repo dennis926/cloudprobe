@@ -4,7 +4,12 @@
       <template #header>
         <div class="page-header">
           <span>服务器管理</span>
-          <el-button type="primary" :icon="Plus" @click="showDialog()">添加服务器</el-button>
+          <div class="header-actions">
+            <el-select v-model="filterGroup" placeholder="全部分组" clearable size="small" style="width: 140px; margin-right: 12px;">
+              <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+            </el-select>
+            <el-button type="primary" :icon="Plus" @click="showDialog()">添加服务器</el-button>
+          </div>
         </div>
       </template>
 
@@ -85,13 +90,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { api } from '@/api/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const baseUrl = window.location.origin
 const servers = ref<any[]>([])
+const groups = ref<any[]>([])
+const filterGroup = ref<number | undefined>(undefined)
 const dialogVisible = ref(false)
 const isMobile = ref(false)
 
@@ -113,8 +120,17 @@ const form = ref<any>({
   group_name: '',
 })
 
+const loadGroups = async () => {
+  const res: any = await api.getGroups()
+  groups.value = res.data || []
+}
+
 const loadServers = async () => {
-  const res: any = await api.getServers()
+  const params: any = {}
+  if (filterGroup.value) {
+    params.group_id = filterGroup.value
+  }
+  const res: any = await api.getServers(params)
   const list = res.data?.list || res.data || []
   servers.value = list
   if (list.length > 0) {
@@ -175,6 +191,8 @@ const deleteServer = async (id: number) => {
 }
 
 onMounted(loadServers)
+onMounted(loadGroups)
+watch(filterGroup, () => loadServers())
 </script>
 
 <style scoped>
@@ -188,6 +206,9 @@ onMounted(loadServers)
 .page-header {
   display: flex; align-items: center; justify-content: space-between;
   color: #f1f5f9; font-weight: 600;
+}
+.header-actions {
+  display: flex; align-items: center;
 }
 .page-card :deep(.el-table) { background: transparent; }
 .page-card :deep(.el-table__row) { background: transparent; }

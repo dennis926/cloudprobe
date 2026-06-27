@@ -1,3 +1,12 @@
+// @title CloudProbe API
+// @version 1.0
+// @description CloudProbe 服务器监控系统 API 文档
+// @host localhost:8080
+// @BasePath /api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT Bearer Token (格式: Bearer {token})
 package web
 
 import (
@@ -22,6 +31,15 @@ import (
 
 // ==================== Auth Handlers ====================
 
+// @Summary 用户登录
+// @Description 使用用户名密码获取 JWT Token
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param body body object{username=string,password=string} true "登录凭证"
+// @Success 200 {object} api.SuccessResponse{data=object{access_token=string,refresh_token=string,user=object{id=uint,username=string,role=string}}}
+// @Failure 401 {object} api.ErrorResponse
+// @Router /auth/login [post]
 func (s *Server) handleLogin(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
@@ -65,6 +83,15 @@ func (s *Server) handleLogin(c *gin.Context) {
 	})
 }
 
+// @Summary 刷新Token
+// @Description 使用 Refresh Token 获取新的 Access Token
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param body body object{refresh_token=string} true "Refresh Token"
+// @Success 200 {object} api.SuccessResponse{data=object{access_token=string,refresh_token=string}}
+// @Failure 401 {object} api.ErrorResponse
+// @Router /auth/refresh [post]
 func (s *Server) handleRefresh(c *gin.Context) {
 	var req struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
@@ -94,6 +121,15 @@ func (s *Server) handleRefresh(c *gin.Context) {
 
 // ==================== Server Handlers ====================
 
+// @Summary 服务器列表
+// @Description 获取所有服务器列表，支持按分组和状态筛选
+// @Tags 服务器
+// @Produce json
+// @Security BearerAuth
+// @Param group_id query int false "分组ID"
+// @Param status query string false "状态(online/offline)"
+// @Success 200 {object} api.SuccessResponse{data=[]model.Server}
+// @Router /servers [get]
 func (s *Server) handleListServers(c *gin.Context) {
 	var servers []model.Server
 	db := database.GetDB().Preload("Group").Preload("Tags").Preload("Bill")
@@ -113,6 +149,14 @@ func (s *Server) handleListServers(c *gin.Context) {
 	api.JSONSuccess(c, servers)
 }
 
+// @Summary 服务器详情
+// @Tags 服务器
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "服务器ID"
+// @Success 200 {object} api.SuccessResponse{data=model.Server}
+// @Failure 404 {object} api.ErrorResponse
+// @Router /servers/{id} [get]
 func (s *Server) handleGetServer(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var server model.Server
@@ -123,6 +167,14 @@ func (s *Server) handleGetServer(c *gin.Context) {
 	api.JSONSuccess(c, server)
 }
 
+// @Summary 创建服务器
+// @Tags 服务器
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body model.Server true "服务器信息"
+// @Success 200 {object} api.SuccessResponse{data=model.Server}
+// @Router /servers [post]
 func (s *Server) handleCreateServer(c *gin.Context) {
 	var req model.Server
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -141,6 +193,15 @@ func (s *Server) handleCreateServer(c *gin.Context) {
 	api.JSONSuccess(c, req)
 }
 
+// @Summary 更新服务器
+// @Tags 服务器
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "服务器ID"
+// @Param body body model.Server true "更新信息"
+// @Success 200 {object} api.SuccessResponse
+// @Router /servers/{id} [put]
 func (s *Server) handleUpdateServer(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req model.Server
@@ -157,6 +218,13 @@ func (s *Server) handleUpdateServer(c *gin.Context) {
 	api.JSONSuccess(c, nil)
 }
 
+// @Summary 删除服务器
+// @Tags 服务器
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "服务器ID"
+// @Success 200 {object} api.SuccessResponse
+// @Router /servers/{id} [delete]
 func (s *Server) handleDeleteServer(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	if err := database.GetDB().Delete(&model.Server{}, id).Error; err != nil {
@@ -168,6 +236,17 @@ func (s *Server) handleDeleteServer(c *gin.Context) {
 
 // ==================== Metrics Handlers ====================
 
+// @Summary 服务器监控指标
+// @Description 获取服务器历史监控指标数据
+// @Tags 监控
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "服务器ID"
+// @Param type query string false "指标类型(cpu/memory/disk)"
+// @Param start query string false "开始时间(RFC3339)"
+// @Param end query string false "结束时间(RFC3339)"
+// @Success 200 {object} api.SuccessResponse
+// @Router /servers/{id}/metrics [get]
 func (s *Server) handleGetMetrics(c *gin.Context) {
 	serverID, _ := strconv.Atoi(c.Param("id"))
 	metricType := c.Query("type")
@@ -195,6 +274,13 @@ func (s *Server) handleGetMetrics(c *gin.Context) {
 	api.JSONSuccess(c, metrics)
 }
 
+// @Summary 实时指标
+// @Description 获取所有服务器的最新实时指标
+// @Tags 监控
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /metrics/realtime [get]
 func (s *Server) handleGetRealtime(c *gin.Context) {
 	svc := service.NewMetricService()
 	metrics, err := svc.GetLatestMetrics()
@@ -207,6 +293,13 @@ func (s *Server) handleGetRealtime(c *gin.Context) {
 
 // ==================== Alert Handlers ====================
 
+// @Summary 告警列表
+// @Tags 告警
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "状态(firing/resolved)"
+// @Success 200 {object} api.SuccessResponse
+// @Router /alerts [get]
 func (s *Server) handleListAlerts(c *gin.Context) {
 	var alerts []model.Alert
 	db := database.GetDB().Preload("Rule").Preload("Server")
@@ -220,6 +313,12 @@ func (s *Server) handleListAlerts(c *gin.Context) {
 	api.JSONSuccess(c, alerts)
 }
 
+// @Summary 告警规则列表
+// @Tags 告警
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /alerts/rules [get]
 func (s *Server) handleListAlertRules(c *gin.Context) {
 	var rules []model.AlertRule
 	if err := database.GetDB().Find(&rules).Error; err != nil {
@@ -229,6 +328,14 @@ func (s *Server) handleListAlertRules(c *gin.Context) {
 	api.JSONSuccess(c, rules)
 }
 
+// @Summary 创建告警规则
+// @Tags 告警
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body model.AlertRule true "告警规则"
+// @Success 200 {object} api.SuccessResponse
+// @Router /alerts/rules [post]
 func (s *Server) handleCreateAlertRule(c *gin.Context) {
 	var req model.AlertRule
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -242,6 +349,15 @@ func (s *Server) handleCreateAlertRule(c *gin.Context) {
 	api.JSONSuccess(c, req)
 }
 
+// @Summary 更新告警规则
+// @Tags 告警
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "规则ID"
+// @Param body body model.AlertRule true "更新内容"
+// @Success 200 {object} api.SuccessResponse
+// @Router /alerts/rules/{id} [put]
 func (s *Server) handleUpdateAlertRule(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req model.AlertRule
@@ -256,6 +372,14 @@ func (s *Server) handleUpdateAlertRule(c *gin.Context) {
 	api.JSONSuccess(c, nil)
 }
 
+// @Summary 删除告警规则
+// @Tags 告警
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "规则ID"
+// @Success 200 {object} api.SuccessResponse
+// @Router /alerts/rules/{id} [delete]
 func (s *Server) handleDeleteAlertRule(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	if err := database.GetDB().Delete(&model.AlertRule{}, id).Error; err != nil {
@@ -267,6 +391,12 @@ func (s *Server) handleDeleteAlertRule(c *gin.Context) {
 
 // ==================== Notification Handlers ====================
 
+// @Summary 通知渠道列表
+// @Tags 通知
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /notifications/channels [get]
 func (s *Server) handleListChannels(c *gin.Context) {
 	var channels []model.NotificationChannel
 	if err := database.GetDB().Find(&channels).Error; err != nil {
@@ -276,6 +406,14 @@ func (s *Server) handleListChannels(c *gin.Context) {
 	api.JSONSuccess(c, channels)
 }
 
+// @Summary 创建通知渠道
+// @Tags 通知
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body model.NotificationChannel true "渠道配置"
+// @Success 200 {object} api.SuccessResponse
+// @Router /notifications/channels [post]
 func (s *Server) handleCreateChannel(c *gin.Context) {
 	var req model.NotificationChannel
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -289,6 +427,14 @@ func (s *Server) handleCreateChannel(c *gin.Context) {
 	api.JSONSuccess(c, req)
 }
 
+// @Summary 测试通知
+// @Tags 通知
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body object{channel_id=uint} true "渠道ID"
+// @Success 200 {object} api.SuccessResponse
+// @Router /notifications/test [post]
 func (s *Server) handleTestNotify(c *gin.Context) {
 	var req struct {
 		ChannelID uint `json:"channel_id"`
@@ -310,6 +456,12 @@ func (s *Server) handleTestNotify(c *gin.Context) {
 
 // ==================== Proxy (3x-ui) Handlers ====================
 
+// @Summary 3x-ui 连接状态
+// @Tags 代理
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /proxy/status [get]
 func (s *Server) handleProxyStatus(c *gin.Context) {
 	api.JSONSuccess(c, gin.H{
 		"connected": s.cfg.XUI.Enabled,
@@ -317,6 +469,14 @@ func (s *Server) handleProxyStatus(c *gin.Context) {
 	})
 }
 
+// @Summary 配置3x-ui
+// @Tags 代理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body object{panel_url=string,api_token=string} true "面板配置"
+// @Success 200 {object} api.SuccessResponse
+// @Router /proxy/config [post]
 func (s *Server) handleProxyConfig(c *gin.Context) {
 	var req struct {
 		PanelURL string `json:"panel_url"`
@@ -334,6 +494,12 @@ func (s *Server) handleProxyConfig(c *gin.Context) {
 	api.JSONSuccess(c, nil)
 }
 
+// @Summary 入站列表
+// @Tags 代理
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /proxy/inbounds [get]
 func (s *Server) handleProxyInbounds(c *gin.Context) {
 	if !s.cfg.XUI.Enabled {
 		api.JSONError(c, http.StatusBadRequest, "3x-ui not configured")
@@ -348,6 +514,13 @@ func (s *Server) handleProxyInbounds(c *gin.Context) {
 	api.JSONSuccess(c, inbounds)
 }
 
+// @Summary 客户端列表
+// @Tags 代理
+// @Produce json
+// @Security BearerAuth
+// @Param inbound_id query int true "入站ID"
+// @Success 200 {object} api.SuccessResponse
+// @Router /proxy/clients [get]
 func (s *Server) handleProxyClients(c *gin.Context) {
 	if !s.cfg.XUI.Enabled {
 		api.JSONError(c, http.StatusBadRequest, "3x-ui not configured")
@@ -367,6 +540,12 @@ func (s *Server) handleProxyClients(c *gin.Context) {
 	api.JSONSuccess(c, clients)
 }
 
+// @Summary 节点列表
+// @Tags 代理
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /proxy/nodes [get]
 func (s *Server) handleProxyNodes(c *gin.Context) {
 	if !s.cfg.XUI.Enabled {
 		api.JSONError(c, http.StatusBadRequest, "3x-ui not configured")
@@ -381,6 +560,12 @@ func (s *Server) handleProxyNodes(c *gin.Context) {
 	api.JSONSuccess(c, nodes)
 }
 
+// @Summary Xray 运行状态
+// @Tags 代理
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /proxy/xray/status [get]
 func (s *Server) handleProxyXrayStatus(c *gin.Context) {
 	if !s.cfg.XUI.Enabled {
 		api.JSONError(c, http.StatusBadRequest, "3x-ui not configured")
@@ -397,6 +582,12 @@ func (s *Server) handleProxyXrayStatus(c *gin.Context) {
 
 // ==================== System Handlers ====================
 
+// @Summary 系统信息
+// @Tags 系统
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /system/info [get]
 func (s *Server) handleSystemInfo(c *gin.Context) {
 	var total, online int64
 	database.GetDB().Model(&model.Server{}).Count(&total)
@@ -413,10 +604,24 @@ func (s *Server) handleSystemInfo(c *gin.Context) {
 	})
 }
 
+// @Summary 获取设置
+// @Tags 系统
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /system/settings [get]
 func (s *Server) handleGetSettings(c *gin.Context) {
 	api.JSONSuccess(c, s.cfg)
 }
 
+// @Summary 更新设置
+// @Tags 系统
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body object true "设置内容"
+// @Success 200 {object} api.SuccessResponse
+// @Router /system/settings [put]
 func (s *Server) handleUpdateSettings(c *gin.Context) {
 	var req struct {
 		Server struct {
@@ -478,4 +683,110 @@ func (s *Server) handleWebSSHDirect(c *gin.Context) {
 
 func (s *Server) handleAgentWS(c *gin.Context) {
 	agent.HandleAgentWebSocket(s.logger)(c)
+}
+
+// ==================== ServerGroup Handlers ====================
+
+// @Summary 创建分组
+// @Tags 分组
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param body body model.ServerGroup true "分组信息"
+// @Success 200 {object} api.SuccessResponse
+// @Router /groups [post]
+func (s *Server) handleCreateGroup(c *gin.Context) {
+	var req model.ServerGroup
+	if err := c.ShouldBindJSON(&req); err != nil {
+		api.JSONError(c, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	if err := database.GetDB().Create(&req).Error; err != nil {
+		api.JSONError(c, http.StatusInternalServerError, "failed to create group")
+		return
+	}
+
+	api.JSONSuccess(c, req)
+}
+
+// @Summary 分组列表
+// @Tags 分组
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} api.SuccessResponse
+// @Router /groups [get]
+func (s *Server) handleListGroups(c *gin.Context) {
+	var groups []model.ServerGroup
+	db := database.GetDB().Order("sort_order ASC, id ASC")
+
+	// 分页参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "100"))
+	if page > 0 && pageSize > 0 {
+		offset := (page - 1) * pageSize
+		db = db.Offset(offset).Limit(pageSize)
+	}
+
+	if err := db.Find(&groups).Error; err != nil {
+		api.JSONError(c, http.StatusInternalServerError, "failed to list groups")
+		return
+	}
+
+	api.JSONSuccess(c, groups)
+}
+
+// @Summary 更新分组
+// @Tags 分组
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "分组ID"
+// @Param body body model.ServerGroup true "更新内容"
+// @Success 200 {object} api.SuccessResponse
+// @Router /groups/{id} [put]
+func (s *Server) handleUpdateGroup(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req model.ServerGroup
+	if err := c.ShouldBindJSON(&req); err != nil {
+		api.JSONError(c, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	if err := database.GetDB().Model(&model.ServerGroup{}).Where("id = ?", id).Updates(&req).Error; err != nil {
+		api.JSONError(c, http.StatusInternalServerError, "failed to update group")
+		return
+	}
+
+	api.JSONSuccess(c, nil)
+}
+
+// @Summary 删除分组
+// @Tags 分组
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "分组ID"
+// @Success 200 {object} api.SuccessResponse
+// @Failure 400 {object} api.ErrorResponse
+// @Router /groups/{id} [delete]
+func (s *Server) handleDeleteGroup(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+
+	// 检查是否有关联服务器
+	var count int64
+	if err := database.GetDB().Model(&model.Server{}).Where("group_id = ?", id).Count(&count).Error; err != nil {
+		api.JSONError(c, http.StatusInternalServerError, "failed to check group")
+		return
+	}
+	if count > 0 {
+		api.JSONError(c, http.StatusBadRequest, "group has associated servers, cannot delete")
+		return
+	}
+
+	if err := database.GetDB().Delete(&model.ServerGroup{}, id).Error; err != nil {
+		api.JSONError(c, http.StatusInternalServerError, "failed to delete group")
+		return
+	}
+
+	api.JSONSuccess(c, nil)
 }
