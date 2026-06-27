@@ -101,10 +101,28 @@ echo -e "${YELLOW}   下载依赖...${NC}"
 go mod tidy
 
 echo -e "${YELLOW}   编译 dashboard + agent...${NC}"
-if CGO_ENABLED=0 go build -o /dev/null ./cmd/dashboard && CGO_ENABLED=0 go build -o /dev/null ./cmd/agent 2>&1; then
+set +e
+BUILD_OUTPUT=$(CGO_ENABLED=0 go build -o /dev/null ./cmd/dashboard 2>&1)
+BUILD_EXIT=$?
+if [ $BUILD_EXIT -eq 0 ]; then
+    BUILD_OUTPUT=$(CGO_ENABLED=0 go build -o /dev/null ./cmd/agent 2>&1)
+    BUILD_EXIT=$?
+fi
+set -e
+if [ $BUILD_EXIT -eq 0 ]; then
     echo -e "${GREEN}   编译通过${NC}"
 else
-    echo -e "${RED}   编译失败！请修复上方错误后重新运行此脚本${NC}"
+    echo ""
+    echo -e "${RED}========================================${NC}"
+    echo -e "${RED}  编译失败！错误信息如下：${NC}"
+    echo -e "${RED}========================================${NC}"
+    echo ""
+    echo "$BUILD_OUTPUT"
+    echo ""
+    echo -e "${RED}========================================${NC}"
+    echo -e "${RED}  请把上方错误信息复制给我，我来修复${NC}"
+    echo -e "${RED}========================================${NC}"
+    echo ""
     exit 1
 fi
 

@@ -181,7 +181,7 @@ func (c *agentServiceClient) Heartbeat(ctx context.Context, in *pb.HeartbeatRequ
 	return out, nil
 }
 
-func (c *agentServiceClient) StreamReport(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[pb.ReportRequest, pb.CommandResponse], error) {
+func (c *agentServiceClient) StreamReport(ctx context.Context, opts ...grpc.CallOption) (pb.AgentService_StreamReportClient, error) {
 	stream, err := c.cc.NewStream(ctx, &grpc.StreamDesc{
 		StreamName:    "StreamReport",
 		ClientStreams: true,
