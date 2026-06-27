@@ -290,7 +290,21 @@ func (s *Server) handleCreateChannel(c *gin.Context) {
 }
 
 func (s *Server) handleTestNotify(c *gin.Context) {
-	// TODO: 发送测试通知
+	var req struct {
+		ChannelID uint `json:"channel_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		api.JSONError(c, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if service.GlobalNotifyService == nil {
+		api.JSONError(c, http.StatusInternalServerError, "notify service not initialized")
+		return
+	}
+	if err := service.GlobalNotifyService.TestChannel(c.Request.Context(), req.ChannelID); err != nil {
+		api.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
 	api.JSONSuccess(c, gin.H{"message": "test notification sent"})
 }
 
@@ -404,8 +418,52 @@ func (s *Server) handleGetSettings(c *gin.Context) {
 }
 
 func (s *Server) handleUpdateSettings(c *gin.Context) {
-	// TODO: 更新系统设置
-	api.JSONSuccess(c, nil)
+	var req struct {
+		Server struct {
+			Mode string `json:"mode"`
+			Port int    `json:"port"`
+		} `json:"server"`
+		JWT struct {
+			AccessExpire  int    `json:"access_expire"`
+			RefreshExpire int    `json:"refresh_expire"`
+			Secret        string `json:"secret"`
+		} `json:"jwt"`
+		SMTP struct {
+			Host     string `json:"host"`
+			Port     int    `json:"port"`
+			User     string `json:"user"`
+			Password string `json:"password"`
+			From     string `json:"from"`
+		} `json:"smtp"`
+		Backup struct {
+			Enabled   bool   `json:"enabled"`
+			Email     string `json:"email"`
+			Schedule  string `json:"schedule"`
+			KeepLocal int    `json:"keep_local"`
+		} `json:"backup"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		api.JSONError(c, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	// 应用运行时配置更新（注意：重启后从配置文件读取）
+	s.cfg.Server.Mode = req.Server.Mode
+	s.cfg.Server.Port = req.Server.Port
+	s.cfg.JWT.AccessExpire = req.JWT.AccessExpire
+	s.cfg.JWT.RefreshExpire = req.JWT.RefreshExpire
+	s.cfg.JWT.Secret = req.JWT.Secret
+	s.cfg.SMTP.Host = req.SMTP.Host
+	s.cfg.SMTP.Port = req.SMTP.Port
+	s.cfg.SMTP.User = req.SMTP.User
+	s.cfg.SMTP.Password = req.SMTP.Password
+	s.cfg.SMTP.From = req.SMTP.From
+	s.cfg.Backup.Enabled = req.Backup.Enabled
+	s.cfg.Backup.Email = req.Backup.Email
+	s.cfg.Backup.Schedule = req.Backup.Schedule
+	s.cfg.Backup.KeepLocal = req.Backup.KeepLocal
+
+	api.JSONSuccess(c, gin.H{"message": "settings updated (runtime only, restart to persist)"})
 }
 
 // ==================== WebSocket Handlers ====================

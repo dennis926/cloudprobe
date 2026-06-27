@@ -412,11 +412,31 @@ func (e *AlertEngine) sendNotification(rule *model.AlertRule, alert *model.Alert
 	return e.db.Model(alert).Save(alert).Error
 }
 
-// getLatestMetric 获取最新指标（简化版）
+// getLatestMetric 从TimescaleDB获取最新指标
 func (e *AlertEngine) getLatestMetric(serverID uint, metricType string) (float64, error) {
-	// TODO: 从TimescaleDB查询最新指标
-	// 临时返回0，后续接入实际指标数据
-	return 0, nil
+	var result struct {
+		Value float64
+	}
+
+	var column string
+	switch metricType {
+	case "cpu":
+		column = "cpu_percent"
+	case "memory":
+		column = "memory_percent"
+	case "disk":
+		column = "disk_percent"
+	case "load":
+		column = "load1"
+	default:
+		return 0, fmt.Errorf("unknown metric type: %s", metricType)
+	}
+
+	query := fmt.Sprintf(`SELECT %s as value FROM server_metrics WHERE server_id = ? ORDER BY time DESC LIMIT 1`, column)
+	if err := e.db.Raw(query, serverID).Scan(&result).Error; err != nil {
+		return 0, err
+	}
+	return result.Value, nil
 }
 
 // formatDuration 格式化持续时间

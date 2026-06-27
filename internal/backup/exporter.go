@@ -104,8 +104,8 @@ func (e *Exporter) ExportServersToCSV() (string, error) {
 
 	for _, s := range servers {
 		record := []string{
-			fmt.Sprintf("%d", s.ID), s.Name, s.PublicIP, s.OSType, s.Status,
-			s.CPUInfo, fmt.Sprintf("%d", s.MemoryTotal), fmt.Sprintf("%d", s.DiskTotal),
+			fmt.Sprintf("%d", s.ID), s.Name, s.IPPublic, s.OSType, s.Status,
+			s.CPUModel, fmt.Sprintf("%d", s.MemoryTotal), fmt.Sprintf("%d", s.DiskTotal),
 			s.Location, fmt.Sprintf("%d", s.SSHPort), s.SSHUser,
 			s.CreatedAt.Format("2006-01-02 15:04:05"),
 		}

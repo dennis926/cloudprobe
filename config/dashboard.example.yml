@@ -1,0 +1,44 @@
+# CloudProbe Dashboard 配置文件示例
+
+server:
+  port: 8080
+  mode: release  # debug / release
+
+database:
+  host: localhost
+  port: 5432
+  user: cloudprobe
+  password: your-db-password
+  dbname: cloudprobe
+  sslmode: disable
+
+redis:
+  addr: localhost:6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: "change-this-secret-key-in-production"
+  access_expire: 24    # hours
+  refresh_expire: 168  # hours (7 days)
+
+agent:
+  grpc_addr: ":50051"  # 海外部署时启用gRPC，留空则仅启用WebSocket
+
+smtp:
+  host: smtp.example.com
+  port: 587
+  user: alerts@example.com
+  password: your-smtp-password
+  from: "CloudProbe <alerts@example.com>"
+
+backup:
+  enabled: true
+  email: your-email@example.com
+  schedule: "0 3 * * 0"  # 每周日凌晨3点
+  keep_local: 7  # 本地保留7天
+
+xui:
+  enabled: false
+  panel_url: "http://127.0.0.1:54321"
+  api_token: "your-3x-ui-api-token"

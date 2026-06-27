@@ -233,10 +233,13 @@ func handleMetrics(serverID uint, msg *AgentMessage) error {
 	return service.HandleMetricsFromAgent(serverID, msg.Data)
 }
 
-// handleSystemInfo 处理系统信息
+// handleSystemInfo 处理系统信息，更新服务器静态信息
 func handleSystemInfo(serverID uint, msg *AgentMessage) error {
-	// TODO: 更新服务器静态信息（如IP变化、系统版本等）
-	return nil
+	if msg.Data == nil {
+		return nil
+	}
+	svc := service.NewServerService()
+	return svc.UpdateServerInfo(serverID, msg.Data)
 }
 
 // BroadcastToServer 向指定服务器发送命令

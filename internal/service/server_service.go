@@ -3,6 +3,7 @@ package service
 import (
 	"time"
 
+	"cloudprobe/internal/cache"
 	"cloudprobe/internal/database"
 	"cloudprobe/internal/model"
 
@@ -52,38 +53,60 @@ func (s *ServerService) MarkOfflineServers(timeout time.Duration) error {
 		}).Error
 }
 
-// GetServerWithMetrics 获取服务器及最新指标
+// GetServerWithMetrics 获取服务器及最新指标（优先从Redis缓存获取）
 func (s *ServerService) GetServerWithMetrics(serverID uint) (*model.Server, map[string]interface{}, error) {
 	var server model.Server
-	if err := s.db.Preload("Group").Preload("Tags").First(&server, serverID).Error; err != nil {
+	if err := s.db.First(&server, serverID).Error; err != nil {
 		return nil, nil, err
 	}
 
-	// TODO: 从TimescaleDB获取最新指标数据
-	metrics := map[string]interface{}{
-		"cpu_percent":    0.0,
-		"memory_percent": 0.0,
-		"disk_percent":   0.0,
-		"load_1":         0.0,
-		"load_5":         0.0,
-		"load_15":        0.0,
-		"net_rx":         0,
-		"net_tx":         0,
-		"uptime":         0,
+	// 优先从Redis获取实时指标
+	metrics, err := cache.GetServerMetrics(serverID)
+	if err != nil || metrics == nil {
+		// Redis无数据，返回数据库中的基本状态
+		metrics = map[string]interface{}{
+			"cpu_percent":    0.0,
+			"memory_percent": 0.0,
+			"disk_percent":   0.0,
+			"load_1":         0.0,
+			"load_5":         0.0,
+			"load_15":        0.0,
+			"net_rx":         0,
+			"net_tx":         0,
+			"uptime":         0,
+		}
 	}
 
 	return &server, metrics, nil
 }
 
-// ListServerMetrics 获取服务器历史指标（简化版）
+// ListServerMetrics 获取服务器历史指标（调用MetricService）
 func (s *ServerService) ListServerMetrics(serverID uint, metricType string, start, end time.Time) ([]map[string]interface{}, error) {
-	// TODO: 从TimescaleDB查询时序数据
-	// 临时返回空数组，后续接入实际数据
-	return []map[string]interface{}{}, nil
+	msvc := NewMetricService()
+	return msvc.QueryMetrics(serverID, metricType, start, end)
 }
 
 // GetRealtimeMetrics 获取所有服务器实时指标（从Redis）
 func (s *ServerService) GetRealtimeMetrics() (map[uint]map[string]interface{}, error) {
-	// TODO: 从Redis获取所有服务器实时状态
-	return map[uint]map[string]interface{}{}, nil
+	return cache.GetAllServerMetrics()
+}
+
+// UpdateServerInfo 更新服务器静态信息
+func (s *ServerService) UpdateServerInfo(serverID uint, info map[string]interface{}) error {
+	updates := map[string]interface{}{}
+
+	if v, ok := info["hostname"].(string); ok && v != "" {
+		updates["name"] = v
+	}
+	if v, ok := info["os"].(string); ok && v != "" {
+		updates["os_type"] = v
+	}
+	if v, ok := info["platform"].(string); ok && v != "" {
+		updates["os_version"] = v
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+	return s.db.Model(&model.Server{}).Where("id = ?", serverID).Updates(updates).Error
 }
