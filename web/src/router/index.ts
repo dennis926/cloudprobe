@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -6,7 +7,8 @@ const router = createRouter({
     {
       path: '/login',
       name: 'Login',
-      component: () => import('@/views/LoginView.vue')
+      component: () => import('@/views/LoginView.vue'),
+      meta: { public: true }
     },
     {
       path: '/',
@@ -55,6 +57,24 @@ const router = createRouter({
       ]
     }
   ]
+})
+
+// 导航守卫
+router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore()
+  authStore.loadUser()
+
+  if (to.meta.public) {
+    next()
+    return
+  }
+
+  if (!authStore.isAuthenticated) {
+    next('/login')
+    return
+  }
+
+  next()
 })
 
 export default router

@@ -1,0 +1,5 @@
+# CloudProbe Agent 配置文件示例
+server_url: "wss://your-dashboard.com/ws/agent"
+token: "your-agent-token-here"
+interval: 30
+heartbeat: 30
