@@ -1,0 +1,57 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+cloudprobe-dashboard
+cloudprobe-agent
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go vendor directory
+vendor/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+web/dist/
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Config files with secrets
+.env
+config.yml
+config.yaml
+!config/config.yml.example
+
+# Data directories
+data/
+xui-data/
+ssl/
+*.db
+*.db-journal
+
+# Temporary files
+tmp/
+temp/
