@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -113,6 +114,14 @@ func Load() *Config {
 		log.Printf("Warning: config file not found, using defaults and env: %v", err)
 	}
 
+	// Docker 环境变量优先覆盖
+	if dbURL := os.Getenv("CP_DATABASE_URL"); dbURL != "" {
+		viper.Set("database.dsn", dbURL)
+	}
+	if redisURL := os.Getenv("CP_REDIS_URL"); redisURL != "" {
+		viper.Set("redis.addr", redisURL)
+	}
+
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Fatalf("Failed to unmarshal config: %v", err)
@@ -140,11 +149,11 @@ func setDefaults() {
 	viper.SetDefault("server.write_timeout", 30)
 
 	viper.SetDefault("database.type", "postgres")
-	viper.SetDefault("database.dsn", "postgres://cpuser:cppass@localhost:5432/cloudprobe?sslmode=disable")
+	viper.SetDefault("database.dsn", "postgres://cpuser:cppass@postgres:5432/cloudprobe?sslmode=disable")
 	viper.SetDefault("database.max_open_conns", 100)
 	viper.SetDefault("database.max_idle_conns", 10)
 
-	viper.SetDefault("redis.addr", "localhost:6379")
+	viper.SetDefault("redis.addr", "redis:6379")
 	viper.SetDefault("redis.password", "")
 	viper.SetDefault("redis.db", 0)
 
