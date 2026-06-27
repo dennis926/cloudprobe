@@ -61,13 +61,18 @@ mkdir -p "${INSTALL_DIR}/config"
 
 # 检查端口占用
 echo -e "${YELLOW}[5/7] 检查端口占用...${NC}"
-if ss -tlnp | grep -q ':8080 '; then
-    echo -e "${RED}   警告: 8080 端口已被占用${NC}"
-    echo "   请修改 docker-compose.bt.yml 中的端口映射"
-    echo "   例如改为: 127.0.0.1:8081:8000"
-    exit 1
+CP_PORT=8090
+# 自动检测可用端口
+while ss -tlnp | grep -q ":${CP_PORT} "; do
+    echo -e "${YELLOW}   端口 ${CP_PORT} 已被占用，尝试 ${CP_PORT}+1...${NC}"
+    CP_PORT=$((CP_PORT + 1))
+done
+echo -e "${GREEN}   将使用端口 ${CP_PORT}${NC}"
+
+# 动态替换 docker-compose.bt.yml 中的端口
+if [ "${CP_PORT}" != "8090" ]; then
+    sed -i "s/127.0.0.1:8090:8000/127.0.0.1:${CP_PORT}:8000/" docker-compose.bt.yml
 fi
-echo -e "${GREEN}   端口 8080 可用${NC}"
 
 # 启动服务
 echo -e "${YELLOW}[6/7] 构建并启动 CloudProbe...${NC}"
@@ -95,8 +100,8 @@ echo ""
 echo -e "${GREEN}=== 部署完成 ===${NC}"
 echo ""
 echo "访问方式:"
-echo "  1. 直接访问: http://你的服务器IP:8080"
-echo "  2. 宝塔反代: 在宝塔面板中设置域名反代到 127.0.0.1:8080"
+echo "  1. 直接访问: http://你的服务器IP:${CP_PORT}"
+echo "  2. 宝塔反代: 在宝塔面板中设置域名反代到 127.0.0.1:${CP_PORT}"
 echo ""
 echo "默认账号:"
 echo "  用户名: admin"

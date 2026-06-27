@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     ports:
       # 仅暴露 Dashboard HTTP 端口到宿主机，避免与 BT 面板冲突
-      - "127.0.0.1:8080:8000"
+      - "127.0.0.1:8090:8000"
     environment:
       - CP_DATABASE_URL=postgres://cpuser:cppass@postgres:5432/cloudprobe
       - CP_REDIS_URL=redis:6379
