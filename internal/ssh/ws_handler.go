@@ -58,10 +58,9 @@ func HandleWebSSH(logger *zap.Logger) gin.HandlerFunc {
 
 		// 建立SSH连接
 		sshCfg := &Config{
-			Host:     server.PublicIP,
+			Host:     server.IPPublic,
 			Port:     server.SSHPort,
 			User:     server.SSHUser,
-			Password: server.SSHPassword,
 			Timeout:  10 * time.Second,
 		}
 

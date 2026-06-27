@@ -3,7 +3,6 @@ package ssh
 import (
 	"fmt"
 	"io"
-	"net"
 	"time"
 
 	"golang.org/x/crypto/ssh"

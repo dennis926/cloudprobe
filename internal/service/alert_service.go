@@ -125,7 +125,12 @@ func (e *AlertEngine) checkOffline(rule *model.AlertRule) error {
 	threshold := time.Duration(rule.Duration) * time.Second
 
 	for _, server := range servers {
-		offlineDuration := now.Sub(server.LastSeenAt)
+		var offlineDuration time.Duration
+		if server.LastSeenAt != nil {
+			offlineDuration = now.Sub(*server.LastSeenAt)
+		} else {
+			offlineDuration = now.Sub(server.CreatedAt)
+		}
 		isOffline := offlineDuration > threshold
 
 		alert, err := e.getActiveAlert(rule.ID, server.ID)
@@ -379,7 +384,7 @@ func (e *AlertEngine) sendNotification(rule *model.AlertRule, alert *model.Alert
 	}
 
 	content += fmt.Sprintf("\n\n服务器: %s\nIP: %s\n时间: %s",
-		server.Name, server.PublicIP, time.Now().Format("2006-01-02 15:04:05"))
+		server.Name, server.IPPublic, time.Now().Format("2006-01-02 15:04:05"))
 
 	ctx := context.Background()
 	results := e.notify.Broadcast(ctx, channelNames, title, content, nil)
@@ -393,11 +398,11 @@ func (e *AlertEngine) sendNotification(rule *model.AlertRule, alert *model.Alert
 			errMsg = err.Error()
 		}
 		log := model.NotificationLog{
-			AlertID:   alert.ID,
-			Channel:   chName,
-			Status:    status,
-			ErrorMsg:  errMsg,
-			CreatedAt: time.Now(),
+			AlertID:  alert.ID,
+			Channel:  chName,
+			Status:   status,
+			ErrorMsg: errMsg,
+			SentAt:   time.Now(),
 		}
 		e.db.Create(&log)
 	}
