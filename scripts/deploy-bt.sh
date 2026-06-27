@@ -132,8 +132,36 @@ fi
 # 获取服务器外网IP
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "你的服务器IP")
 
+# ==================== 交互式管理员初始化 ====================
+echo ""
+echo -e "${YELLOW}[6/9] 管理员账号初始化${NC}"
+echo -e "${CYAN}----------------------------------------${NC}"
+
+read -rp "是否初始化管理员账号？[Y/n] " INIT_ADMIN
+INIT_ADMIN=${INIT_ADMIN:-Y}
+
+if [ "$INIT_ADMIN" = "Y" ] || [ "$INIT_ADMIN" = "y" ]; then
+    read -rp "请输入管理员用户名 [默认: admin]: " ADMIN_USER
+    ADMIN_USER=${ADMIN_USER:-admin}
+
+    read -rsp "请输入管理员密码 [默认: admin]: " ADMIN_PASS
+    echo ""
+    ADMIN_PASS=${ADMIN_PASS:-admin}
+
+    cat > "${INSTALL_DIR}/.env" << EOF
+CP_ADMIN_USER=${ADMIN_USER}
+CP_ADMIN_PASS=${ADMIN_PASS}
+EOF
+
+    echo -e "${GREEN}   管理员账号已配置: ${ADMIN_USER} / ${ADMIN_PASS}${NC}"
+else
+    echo "CP_SKIP_DEFAULT_USER=1" > "${INSTALL_DIR}/.env"
+    echo -e "${YELLOW}   已跳过初始化，后续可用 reset-password.sh 重置${NC}"
+fi
+echo -e "${CYAN}----------------------------------------${NC}"
+
 # 安装 Go + 快速编译检查
-echo -e "${YELLOW}[6/9] Go 编译检查...${NC}"
+echo -e "${YELLOW}[7/9] Go 编译检查...${NC}"
 if ! command -v go &> /dev/null; then
     echo -e "${YELLOW}   安装 Go 1.22...${NC}"
     GO_VERSION="1.22.0"
@@ -186,7 +214,7 @@ else
 fi
 
 # Docker 构建
-echo -e "${YELLOW}[7/9] Docker 构建...${NC}"
+echo -e "${YELLOW}[8/9] Docker 构建...${NC}"
 docker-compose -f docker-compose.bt.yml up -d --build
 
 # 等待服务就绪
@@ -200,6 +228,10 @@ for i in {1..30}; do
     [ $i -eq 30 ] && echo -e "${YELLOW}   启动可能仍在进行，稍后检查日志${NC}"
     sleep 2
 done
+
+# 设置文档中显示的账号（如果用户跳过初始化则显示默认值）
+DOC_ADMIN_USER=${ADMIN_USER:-admin}
+DOC_ADMIN_PASS=${ADMIN_PASS:-admin}
 
 # 生成部署信息文档
 echo -e "${YELLOW}[9/9] 生成部署信息文档...${NC}"
@@ -220,9 +252,9 @@ cat > "${DEPLOY_INFO_FILE}" << EOF
 外网访问: http://${SERVER_IP}:${CP_PORT}
 内网访问: http://127.0.0.1:${CP_PORT}
 
-默认账号:
-  用户名: admin
-  密码:   admin
+管理员账号:
+  用户名: ${DOC_ADMIN_USER}
+  密码:   ${DOC_ADMIN_PASS}
 
 ----------------------------------------
   服务状态
@@ -295,7 +327,7 @@ echo -e "${GREEN}  部署完成！${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${CYAN}访问地址: http://${SERVER_IP}:${CP_PORT}${NC}"
-echo -e "${CYAN}默认账号: admin / admin${NC}"
+echo -e "${CYAN}管理员账号: ${DOC_ADMIN_USER} / ${DOC_ADMIN_PASS}${NC}"
 echo ""
 echo -e "${YELLOW}重要提示:${NC}"
 echo -e "  1. 请在云服务器安全组中放行 TCP ${CP_PORT} 端口"

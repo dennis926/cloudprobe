@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
     container_name: cloudprobe-dashboard
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       # 仅暴露 Dashboard HTTP 端口到宿主机，避免与 BT 面板冲突
       - "0.0.0.0:8090:8000"

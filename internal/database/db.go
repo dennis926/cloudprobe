@@ -86,20 +86,36 @@ func autoMigrate() error {
 }
 
 // initDefaultUser 初始化默认管理员账户
+// 支持通过环境变量自定义: CP_ADMIN_USER, CP_ADMIN_PASS
+// 设置 CP_SKIP_DEFAULT_USER=1 可跳过自动创建
 func initDefaultUser() error {
+	if os.Getenv("CP_SKIP_DEFAULT_USER") == "1" {
+		return nil
+	}
+
 	var count int64
 	db.Model(&model.User{}).Count(&count)
 	if count > 0 {
 		return nil
 	}
 
-	hash, err := auth.HashPassword("admin")
+	username := os.Getenv("CP_ADMIN_USER")
+	if username == "" {
+		username = "admin"
+	}
+
+	password := os.Getenv("CP_ADMIN_PASS")
+	if password == "" {
+		password = "admin"
+	}
+
+	hash, err := auth.HashPassword(password)
 	if err != nil {
 		return fmt.Errorf("failed to hash default password: %w", err)
 	}
 
 	user := model.User{
-		Username: "admin",
+		Username: username,
 		Password: hash,
 		Role:     "admin",
 		Status:   "active",
