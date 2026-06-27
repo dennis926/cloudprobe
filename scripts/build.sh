@@ -45,12 +45,12 @@ go mod tidy
 echo -e "${GREEN}   go.sum 已生成${NC}"
 
 # 快速编译 dashboard
-echo -e "${YELLOW}[3/4] 编译 dashboard...${NC}"
+echo -e "${YELLOW}[3/5] 编译 dashboard...${NC}"
 CGO_ENABLED=0 go build -o /dev/null ./cmd/dashboard
 echo -e "${GREEN}   dashboard 编译通过${NC}"
 
 # 快速编译 agent
-echo -e "${YELLOW}[4/4] 编译 agent...${NC}"
+echo -e "${YELLOW}[4/5] 编译 agent...${NC}"
 CGO_ENABLED=0 go build -o /dev/null ./cmd/agent
 echo -e "${GREEN}   agent 编译通过${NC}"
 

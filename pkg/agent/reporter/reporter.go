@@ -2,7 +2,6 @@ package reporter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 

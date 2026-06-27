@@ -100,14 +100,13 @@ echo "   $(go version)"
 echo -e "${YELLOW}   下载依赖...${NC}"
 go mod tidy
 
-echo -e "${YELLOW}   编译 dashboard...${NC}"
-if CGO_ENABLED=0 go build -o /tmp/cloudprobe-dashboard ./cmd/dashboard 2>&1; then
+echo -e "${YELLOW}   编译 dashboard + agent...${NC}"
+if CGO_ENABLED=0 go build -o /dev/null ./cmd/dashboard && CGO_ENABLED=0 go build -o /dev/null ./cmd/agent 2>&1; then
     echo -e "${GREEN}   编译通过${NC}"
 else
     echo -e "${RED}   编译失败！请修复上方错误后重新运行此脚本${NC}"
     exit 1
 fi
-rm -f /tmp/cloudprobe-dashboard
 
 # Docker 构建
 echo -e "${YELLOW}[7/8] Docker 构建...${NC}"

@@ -1,5 +1,11 @@
 package pb
 
+import (
+	"context"
+
+	"google.golang.org/grpc"
+)
+
 // 手写 protobuf 兼容消息结构体
 // 实际项目应通过 `make proto` 由 protoc 自动生成
 
@@ -55,3 +61,19 @@ type CommandResponse struct {
 func (x *CommandResponse) Reset()         { *x = CommandResponse{} }
 func (x *CommandResponse) String() string { return x.Command }
 func (x *CommandResponse) ProtoMessage()  {}
+
+// ==================== gRPC Client 接口 ====================
+
+// AgentServiceClient is the client API for AgentService service.
+type AgentServiceClient interface {
+	Report(ctx context.Context, in *ReportRequest, opts ...grpc.CallOption) (*ReportResponse, error)
+	Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error)
+	StreamReport(ctx context.Context, opts ...grpc.CallOption) (AgentService_StreamReportClient, error)
+}
+
+// AgentService_StreamReportClient is the client-side streaming interface for StreamReport.
+type AgentService_StreamReportClient interface {
+	Send(*ReportRequest) error
+	Recv() (*CommandResponse, error)
+	grpc.ClientStream
+}
