@@ -1,10 +1,20 @@
 FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
-COPY go.mod ./
-RUN go mod tidy && go mod download
 
+# 安装 git（某些依赖需要）
+RUN apk add --no-cache git
+
+# 先复制 go.mod 下载基础依赖
+COPY go.mod ./
+RUN go mod download
+
+# 再复制完整源码并 tidy（扫描所有 .go 文件生成 go.sum）
 COPY . .
+RUN go mod tidy
+RUN go mod download
+
+# 构建后端
 RUN go build -ldflags="-s -w" -o cloudprobe-dashboard ./cmd/dashboard
 RUN go build -ldflags="-s -w" -o cloudprobe-agent ./cmd/agent
 
