@@ -17,15 +17,7 @@ export function useWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/realtime`
 
-    try {
-      ws = new WebSocket(wsUrl, [], {
-        headers: {
-          Authorization: `Bearer ${authStore.accessToken}`
-        }
-      })
-    } catch {
-      ws = new WebSocket(wsUrl)
-    }
+    ws = new WebSocket(wsUrl)
 
     ws.onopen = () => {
       connected.value = true

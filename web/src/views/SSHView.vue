@@ -2,7 +2,7 @@
   <div class="ssh-container">
     <div class="ssh-header">
       <div class="ssh-title">
-        <el-icon><Terminal /></el-icon>
+        <el-icon><Monitor /></el-icon>
         <span>WebSSH - {{ serverName }}</span>
       </div>
       <div class="ssh-actions">
@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { Terminal } from '@element-plus/icons-vue'
+import { Monitor } from '@element-plus/icons-vue'
 import { Terminal as XTerm } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'

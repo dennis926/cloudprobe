@@ -10,7 +10,7 @@
       <el-col :xs="12" :sm="12" :md="6">
         <div class="stat-card">
           <div class="stat-icon" style="background: rgba(56, 189, 248, 0.12);">
-            <el-icon :size="24" color="#38bdf8"><Server /></el-icon>
+            <el-icon :size="24" color="#38bdf8"><Cpu /></el-icon>
           </div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.total }}</div>
@@ -188,9 +188,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Server, CircleCheck, CircleClose, Bell, Plus } from '@element-plus/icons-vue'
+import { Cpu, CircleCheck, CircleClose, Bell, Plus } from '@element-plus/icons-vue'
 import { api } from '@/api/request'
-import { ElMessage } from 'element-plus'
 import { useWebSocket } from '@/composables/useWebSocket'
 
 const ws = useWebSocket()

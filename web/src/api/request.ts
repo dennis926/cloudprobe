@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
+import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '@/router'
 
@@ -112,4 +112,5 @@ export const api = {
   // 代理
   getProxyStatus: () => request.get('/proxy/status'),
   getProxyInbounds: () => request.get('/proxy/inbounds'),
+  getProxyNodes: () => request.get('/proxy/nodes'),
 }

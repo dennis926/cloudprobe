@@ -124,7 +124,7 @@ const testChannel = async (id: number) => {
   }
 }
 
-const deleteChannel = async (id: number) => {
+const deleteChannel = async (_id: number) => {
   try {
     await ElMessageBox.confirm('确定删除此渠道吗？', '提示', { type: 'warning' })
     // await api.deleteChannel(id)

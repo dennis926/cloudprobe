@@ -26,7 +26,7 @@
         </el-menu-item>
 
         <el-menu-item index="/servers">
-          <el-icon><Server /></el-icon>
+          <el-icon><Cpu /></el-icon>
           <template #title>服务器</template>
         </el-menu-item>
 
@@ -117,10 +117,8 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  Monitor, Odometer, Server, Bell, Message, Switch, Setting,
-  Expand, Fold, UserFilled, ArrowDown, SwitchButton, Folder,
-  Sunny, Moon
+import { Monitor, Odometer, Cpu, Bell, Message, Switch, Setting,
+  Expand, Fold, UserFilled, ArrowDown, SwitchButton, Folder, Sunny, Moon
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -129,7 +127,7 @@ import { useI18n } from '@/i18n'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const { theme, isDark, setTheme, toggleTheme } = useTheme()
+const { theme, isDark, toggleTheme } = useTheme()
 const { setLocale } = useI18n()
 const isCollapse = ref(false)
 const isMobile = ref(false)
