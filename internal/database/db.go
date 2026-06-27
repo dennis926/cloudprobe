@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"cloudprobe/internal/auth"
 	"cloudprobe/internal/config"
 	"cloudprobe/internal/model"
 
@@ -92,9 +93,14 @@ func initDefaultUser() error {
 		return nil
 	}
 
+	hash, err := auth.HashPassword("admin")
+	if err != nil {
+		return fmt.Errorf("failed to hash default password: %w", err)
+	}
+
 	user := model.User{
 		Username: "admin",
-		Password: "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW", // admin (bcrypt)
+		Password: hash,
 		Role:     "admin",
 		Status:   "active",
 	}
