@@ -70,7 +70,7 @@ while ss -tlnp | grep -q ":${CP_PORT} "; do
 done
 echo -e "${GREEN}   使用端口 ${CP_PORT}${NC}"
 if [ "${CP_PORT}" != "8090" ]; then
-    sed -i "s/127.0.0.1:8090:8000/127.0.0.1:${CP_PORT}:8000/" docker-compose.bt.yml
+    sed -i "s/0.0.0.0:8090:8000/0.0.0.0:${CP_PORT}:8000/" docker-compose.bt.yml
 fi
 
 # 安装 Go + 快速编译检查（秒级反馈，发现错误立即中止）
