@@ -15,6 +15,7 @@ type Config struct {
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Agent    AgentConfig    `mapstructure:"agent"`
 	Notify   NotifyConfig   `mapstructure:"notify"`
+	SMTP     SMTPConfig     `mapstructure:"smtp"`
 	Backup   BackupConfig   `mapstructure:"backup"`
 	XUI      XUIConfig      `mapstructure:"xui"`
 }
@@ -52,11 +53,11 @@ type JWTConfig struct {
 	RefreshHours  time.Duration `mapstructure:"refresh_hours"`
 }
 
-// AgentConfig Agent通信配置
+// AgentConfig Agent配置
 type AgentConfig struct {
-	Mode           string `mapstructure:"mode"` // foreign / domestic
-	TokenSecret    string `mapstructure:"token_secret"`
-	ReportInterval int    `mapstructure:"report_interval"`
+	Token     string `mapstructure:"token"`
+	Interval  int    `mapstructure:"interval"`
+	GRPCAddr  string `mapstructure:"grpc_addr"`
 }
 
 // NotifyConfig 通知配置
@@ -64,9 +65,19 @@ type NotifyConfig struct {
 	Channels []string `mapstructure:"channels"`
 }
 
+// SMTPConfig SMTP配置
+type SMTPConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+}
+
 // BackupConfig 备份配置
 type BackupConfig struct {
 	Enabled      bool     `mapstructure:"enabled"`
+	Email        string   `mapstructure:"email"`
 	Schedule     string   `mapstructure:"schedule"`
 	KeepLocal    int      `mapstructure:"keep_local"`
 	EmailTo      []string `mapstructure:"email_to"`

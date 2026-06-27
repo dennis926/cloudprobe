@@ -56,6 +56,11 @@ func (s *Scheduler) Start() {
 		}
 	})
 
+	// 每周日凌晨3点执行数据备份
+	s.cron.AddFunc("0 3 * * 0", func() {
+		RunBackup(s.logger)
+	})
+
 	s.cron.Start()
 	s.logger.Info("task scheduler started")
 }

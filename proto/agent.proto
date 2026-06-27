@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+option go_package = "cloudprobe/internal/grpc/pb";
+
+package agent;
+
+// AgentService Agent上报服务
+service AgentService {
+  // Report 上报指标数据
+  rpc Report(ReportRequest) returns (ReportResponse);
+  // Heartbeat 心跳检测
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  // StreamReport 流式上报（持续连接）
+  rpc StreamReport(stream ReportRequest) returns (stream CommandResponse);
+}
+
+message ReportRequest {
+  string token = 1;
+  bytes payload = 2;  // JSON 序列化的指标数据
+  int64 timestamp = 3;
+  string hostname = 4;
+}
+
+message ReportResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message HeartbeatRequest {
+  string token = 1;
+  int64 timestamp = 2;
+}
+
+message HeartbeatResponse {
+  bool success = 1;
+  string message = 2;
+  int64 server_time = 3;
+}
+
+// CommandResponse Dashboard下发命令
+message CommandResponse {
+  string command = 1;  // restart | update | config
+  bytes payload = 2;
+}

@@ -12,6 +12,7 @@ import (
 	"cloudprobe/internal/cache"
 	"cloudprobe/internal/config"
 	"cloudprobe/internal/database"
+	grpcserver "cloudprobe/internal/grpc"
 	"cloudprobe/internal/service"
 	"cloudprobe/internal/task"
 
@@ -27,6 +28,7 @@ type Server struct {
 	logger      *zap.Logger
 	alertEngine *service.AlertEngine
 	scheduler   *task.Scheduler
+	grpcServer  interface{ Stop() }
 }
 
 // NewServer 创建Web服务器
@@ -70,12 +72,24 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	scheduler := task.NewScheduler(logger)
 	scheduler.Start()
 
+	// 启动gRPC服务（海外部署方案）
+	var grpcSvr interface{ Stop() }
+	if cfg.Agent.GRPCAddr != "" {
+		gs, err := grpcserver.StartGRPCServer(cfg.Agent.GRPCAddr, logger)
+		if err != nil {
+			logger.Warn("gRPC server failed to start", zap.Error(err))
+		} else {
+			grpcSvr = gs
+		}
+	}
+
 	s := &Server{
 		cfg:         cfg,
 		router:      router,
 		logger:      logger,
 		alertEngine: alertEngine,
 		scheduler:   scheduler,
+		grpcServer:  grpcSvr,
 	}
 
 	s.initRoutes()
@@ -170,6 +184,9 @@ func (s *Server) Start() error {
 
 // Stop 停止服务器
 func (s *Server) Stop() {
+	if s.grpcServer != nil {
+		s.grpcServer.Stop()
+	}
 	if s.scheduler != nil {
 		s.scheduler.Stop()
 	}
