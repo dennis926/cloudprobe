@@ -1,0 +1,56 @@
+version: "3.8"
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloudprobe-dashboard
+    restart: unless-stopped
+    ports:
+      # 仅暴露 Dashboard HTTP 端口到宿主机，避免与 BT 面板冲突
+      - "127.0.0.1:8080:8000"
+    environment:
+      - CP_DATABASE_URL=postgres://cpuser:cppass@postgres:5432/cloudprobe
+      - CP_REDIS_URL=redis:6379
+      - CP_MODE=domestic
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cloudprobe
+
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: cloudprobe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cpuser
+      POSTGRES_PASSWORD: cppass
+      POSTGRES_DB: cloudprobe
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # 不暴露端口到宿主机，仅容器内访问，避免与 BT 的 MySQL/PostgreSQL 冲突
+    networks:
+      - cloudprobe
+
+  redis:
+    image: redis:7-alpine
+    container_name: cloudprobe-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    # 不暴露端口到宿主机，仅容器内访问，避免与 BT 的 Redis 冲突
+    networks:
+      - cloudprobe
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  cloudprobe:
+    driver: bridge
