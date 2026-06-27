@@ -227,9 +227,10 @@ func (c *Connection) Send(msg *DashboardMessage) error {
 
 // handleMetrics 处理指标数据
 func handleMetrics(serverID uint, msg *AgentMessage) error {
-	// TODO: 写入TimescaleDB
-	// TODO: 更新Redis实时缓存
-	return nil
+	if msg.Data == nil {
+		return nil
+	}
+	return service.HandleMetricsFromAgent(serverID, msg.Data)
 }
 
 // handleSystemInfo 处理系统信息

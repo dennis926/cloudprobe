@@ -8,8 +8,11 @@ import (
 	"cloudprobe/internal/agent"
 	"cloudprobe/internal/api"
 	"cloudprobe/internal/auth"
+	"cloudprobe/internal/cache"
 	"cloudprobe/internal/database"
 	"cloudprobe/internal/model"
+	"cloudprobe/internal/proxy"
+	"cloudprobe/internal/service"
 	sshweb "cloudprobe/internal/ssh"
 
 	"github.com/gin-gonic/gin"
@@ -166,18 +169,40 @@ func (s *Server) handleDeleteServer(c *gin.Context) {
 // ==================== Metrics Handlers ====================
 
 func (s *Server) handleGetMetrics(c *gin.Context) {
-	// TODO: 从TimescaleDB查询历史监控数据
-	api.JSONSuccess(c, gin.H{
-		"server_id": c.Param("id"),
-		"message":   "metrics endpoint - implement with TimescaleDB",
-	})
+	serverID, _ := strconv.Atoi(c.Param("id"))
+	metricType := c.Query("type")
+
+	// 默认查询最近24小时
+	end := time.Now()
+	start := end.Add(-24 * time.Hour)
+	if startStr := c.Query("start"); startStr != "" {
+		if t, err := time.Parse(time.RFC3339, startStr); err == nil {
+			start = t
+		}
+	}
+	if endStr := c.Query("end"); endStr != "" {
+		if t, err := time.Parse(time.RFC3339, endStr); err == nil {
+			end = t
+		}
+	}
+
+	svc := service.NewMetricService()
+	metrics, err := svc.QueryMetrics(uint(serverID), metricType, start, end)
+	if err != nil {
+		api.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	api.JSONSuccess(c, metrics)
 }
 
 func (s *Server) handleGetRealtime(c *gin.Context) {
-	// TODO: 从Redis获取实时状态
-	api.JSONSuccess(c, gin.H{
-		"message": "realtime endpoint - implement with Redis",
-	})
+	svc := service.NewMetricService()
+	metrics, err := svc.GetLatestMetrics()
+	if err != nil {
+		api.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	api.JSONSuccess(c, metrics)
 }
 
 // ==================== Alert Handlers ====================
@@ -296,28 +321,81 @@ func (s *Server) handleProxyConfig(c *gin.Context) {
 }
 
 func (s *Server) handleProxyInbounds(c *gin.Context) {
-	api.JSONSuccess(c, gin.H{"message": "proxy inbounds - implement with 3x-ui API"})
+	if !s.cfg.XUI.Enabled {
+		api.JSONError(c, http.StatusBadRequest, "3x-ui not configured")
+		return
+	}
+	client := proxy.NewClient(&s.cfg.XUI)
+	inbounds, err := client.GetInbounds(c.Request.Context())
+	if err != nil {
+		api.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	api.JSONSuccess(c, inbounds)
 }
 
 func (s *Server) handleProxyClients(c *gin.Context) {
-	api.JSONSuccess(c, gin.H{"message": "proxy clients - implement with 3x-ui API"})
+	if !s.cfg.XUI.Enabled {
+		api.JSONError(c, http.StatusBadRequest, "3x-ui not configured")
+		return
+	}
+	inboundID, _ := strconv.Atoi(c.Query("inbound_id"))
+	if inboundID == 0 {
+		api.JSONError(c, http.StatusBadRequest, "inbound_id required")
+		return
+	}
+	client := proxy.NewClient(&s.cfg.XUI)
+	clients, err := client.GetClients(c.Request.Context(), inboundID)
+	if err != nil {
+		api.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	api.JSONSuccess(c, clients)
 }
 
 func (s *Server) handleProxyNodes(c *gin.Context) {
-	api.JSONSuccess(c, gin.H{"message": "proxy nodes - implement with 3x-ui API"})
+	if !s.cfg.XUI.Enabled {
+		api.JSONError(c, http.StatusBadRequest, "3x-ui not configured")
+		return
+	}
+	client := proxy.NewClient(&s.cfg.XUI)
+	nodes, err := client.GetNodes(c.Request.Context())
+	if err != nil {
+		api.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	api.JSONSuccess(c, nodes)
 }
 
 func (s *Server) handleProxyXrayStatus(c *gin.Context) {
-	api.JSONSuccess(c, gin.H{"message": "proxy xray status - implement with 3x-ui API"})
+	if !s.cfg.XUI.Enabled {
+		api.JSONError(c, http.StatusBadRequest, "3x-ui not configured")
+		return
+	}
+	client := proxy.NewClient(&s.cfg.XUI)
+	status, err := client.GetXrayStatus(c.Request.Context())
+	if err != nil {
+		api.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	api.JSONSuccess(c, status)
 }
 
 // ==================== System Handlers ====================
 
 func (s *Server) handleSystemInfo(c *gin.Context) {
+	var total, online int64
+	database.GetDB().Model(&model.Server{}).Count(&total)
+	database.GetDB().Model(&model.Server{}).Where("status = ?", "online").Count(&online)
+
+	var firingAlerts int64
+	database.GetDB().Model(&model.Alert{}).Where("status = ?", "firing").Count(&firingAlerts)
+
 	api.JSONSuccess(c, gin.H{
-		"version":   "1.0.0",
-		"agent_count": 0,
-		"server_count": 0,
+		"version":       "1.0.0",
+		"server_count":  total,
+		"online_count":  online,
+		"alert_count":   firingAlerts,
 	})
 }
 

@@ -9,6 +9,7 @@ import (
 	"cloudprobe/internal/agent"
 	"cloudprobe/internal/api"
 	"cloudprobe/internal/auth"
+	"cloudprobe/internal/cache"
 	"cloudprobe/internal/config"
 	"cloudprobe/internal/database"
 	"cloudprobe/internal/service"
@@ -37,6 +38,11 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	// 初始化数据库
 	if err := database.Init(&cfg.Database); err != nil {
 		return nil, fmt.Errorf("failed to init database: %w", err)
+	}
+
+	// 初始化Redis
+	if err := cache.Init(&cfg.Redis); err != nil {
+		logger.Warn("Redis init failed, continuing without cache", zap.Error(err))
 	}
 
 	// 初始化通知服务

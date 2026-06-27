@@ -48,6 +48,11 @@ func Init(cfg *config.DatabaseConfig) error {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	// 初始化TimescaleDB
+	if err := InitTimescaleDB(); err != nil {
+		log.Printf("Warning: TimescaleDB init failed: %v", err)
+	}
+
 	// 初始化默认管理员
 	if err := initDefaultUser(); err != nil {
 		return fmt.Errorf("failed to init default user: %w", err)
