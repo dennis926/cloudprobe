@@ -55,7 +55,7 @@
     </el-card>
 
     <!-- 配置对话框 -->
-    <el-dialog v-model="showConfig" title="3x-ui 面板配置" width="480px">
+    <el-dialog v-model="showConfig" title="3x-ui 面板配置" :width="isMobile ? '92%' : '480px'">
       <el-form :model="configForm" label-width="100px">
         <el-form-item label="面板地址">
           <el-input v-model="configForm.panel_url" placeholder="http://127.0.0.1:54321" />
@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { api } from '@/api/request'
 import { ElMessage } from 'element-plus'
 
@@ -82,7 +82,12 @@ const status = ref<any>({})
 const inbounds = ref<any[]>([])
 const nodes = ref<any[]>([])
 const showConfig = ref(false)
+const isMobile = ref(false)
 const configForm = ref({ panel_url: '', api_token: '' })
+
+const checkMobile = () => { isMobile.value = window.innerWidth <= 768 }
+onMounted(() => { checkMobile(); window.addEventListener('resize', checkMobile) })
+onUnmounted(() => window.removeEventListener('resize', checkMobile))
 
 const loadStatus = async () => {
   try {

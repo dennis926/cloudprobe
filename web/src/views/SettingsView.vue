@@ -10,7 +10,7 @@
 
       <el-tabs v-model="activeTab" class="settings-tabs">
         <el-tab-pane label="服务器" name="server">
-          <el-form :model="settings.server" label-width="140px">
+          <el-form :model="settings.server" :label-width="formLabelWidth">
             <el-form-item label="运行模式">
               <el-select v-model="settings.server.mode">
                 <el-option label="Release" value="release" />
@@ -24,7 +24,7 @@
         </el-tab-pane>
 
         <el-tab-pane label="JWT" name="jwt">
-          <el-form :model="settings.jwt" label-width="140px">
+          <el-form :model="settings.jwt" :label-width="formLabelWidth">
             <el-form-item label="Secret">
               <el-input v-model="settings.jwt.secret" show-password />
             </el-form-item>
@@ -38,7 +38,7 @@
         </el-tab-pane>
 
         <el-tab-pane label="SMTP" name="smtp">
-          <el-form :model="settings.smtp" label-width="140px">
+          <el-form :model="settings.smtp" :label-width="formLabelWidth">
             <el-form-item label="SMTP服务器">
               <el-input v-model="settings.smtp.host" />
             </el-form-item>
@@ -58,7 +58,7 @@
         </el-tab-pane>
 
         <el-tab-pane label="备份" name="backup">
-          <el-form :model="settings.backup" label-width="140px">
+          <el-form :model="settings.backup" :label-width="formLabelWidth">
             <el-form-item label="启用备份">
               <el-switch v-model="settings.backup.enabled" />
             </el-form-item>
@@ -76,11 +76,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { api } from '@/api/request'
 import { ElMessage } from 'element-plus'
 
 const activeTab = ref('server')
+const isMobile = ref(false)
+const formLabelWidth = ref('140px')
+
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768
+  formLabelWidth.value = isMobile.value ? '90px' : '140px'
+}
+onMounted(() => { checkMobile(); window.addEventListener('resize', checkMobile) })
+onUnmounted(() => window.removeEventListener('resize', checkMobile))
 const settings = ref<any>({
   server: { mode: 'release', port: 8080 },
   jwt: { secret: '', access_expire: 24, refresh_expire: 168 },
@@ -155,5 +164,12 @@ onMounted(loadSettings)
 }
 .settings-tabs :deep(.el-form-item__label) {
   color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+  .page-header { flex-wrap: wrap; gap: 8px; }
+  .page-header .el-button { width: 100%; }
+  .settings-tabs :deep(.el-tabs__nav-wrap::after) { display: none; }
+  .settings-tabs :deep(.el-tabs__item) { padding: 0 12px; font-size: 13px; }
 }
 </style>

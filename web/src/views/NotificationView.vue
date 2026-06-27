@@ -34,7 +34,7 @@
     </el-card>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑渠道' : '添加渠道'" width="520px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑渠道' : '添加渠道'" :width="isMobile ? '92%' : '520px'">
       <el-form :model="form" label-width="100px">
         <el-form-item label="名称">
           <el-input v-model="form.name" placeholder="如：企业微信告警" />
@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { Plus, Message } from '@element-plus/icons-vue'
 import { api } from '@/api/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -72,12 +72,17 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const channels = ref<any[]>([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
+const isMobile = ref(false)
 const form = ref<any>({
   name: '',
   channel: 'email',
   config: '{}',
   enabled: true
 })
+
+const checkMobile = () => { isMobile.value = window.innerWidth <= 768 }
+onMounted(() => { checkMobile(); window.addEventListener('resize', checkMobile) })
+onUnmounted(() => window.removeEventListener('resize', checkMobile))
 
 const loadChannels = async () => {
   const res: any = await api.getChannels()
