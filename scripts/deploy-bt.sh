@@ -137,7 +137,7 @@ echo ""
 echo -e "${YELLOW}[6/9] 管理员账号初始化${NC}"
 echo -e "${CYAN}----------------------------------------${NC}"
 
-read -rp "是否初始化管理员账号？[Y/n] " INIT_ADMIN
+read -rp "是否自动初始化管理员账号？[Y/n] " INIT_ADMIN
 INIT_ADMIN=${INIT_ADMIN:-Y}
 
 if [ "$INIT_ADMIN" = "Y" ] || [ "$INIT_ADMIN" = "y" ]; then
@@ -153,10 +153,10 @@ CP_ADMIN_USER=${ADMIN_USER}
 CP_ADMIN_PASS=${ADMIN_PASS}
 EOF
 
-    echo -e "${GREEN}   管理员账号已配置: ${ADMIN_USER} / ${ADMIN_PASS}${NC}"
+    echo -e "${GREEN}   已配置自动初始化: ${ADMIN_USER} / ${ADMIN_PASS}${NC}"
 else
-    echo "CP_SKIP_DEFAULT_USER=1" > "${INSTALL_DIR}/.env"
-    echo -e "${YELLOW}   已跳过初始化，后续可用 reset-password.sh 重置${NC}"
+    # 手动模式：不写入 .env，等 Docker 启动后通过 SQL 直接创建
+    echo -e "${YELLOW}   已选择手动模式，将在部署完成后创建${NC}"
 fi
 echo -e "${CYAN}----------------------------------------${NC}"
 
@@ -218,7 +218,7 @@ echo -e "${YELLOW}[8/9] Docker 构建...${NC}"
 docker-compose -f docker-compose.bt.yml up -d --build
 
 # 等待服务就绪
-echo -e "${YELLOW}[8/9] 等待服务启动...${NC}"
+echo -e "${YELLOW}[9/10] 等待服务启动...${NC}"
 sleep 5
 for i in {1..30}; do
     if docker-compose -f docker-compose.bt.yml logs dashboard 2>/dev/null | grep -q "Server starting"; then
@@ -229,12 +229,86 @@ for i in {1..30}; do
     sleep 2
 done
 
+# ==================== 手动模式：创建管理员账号 ====================
+if [ "$INIT_ADMIN" = "n" ] || [ "$INIT_ADMIN" = "N" ]; then
+    echo ""
+    echo -e "${YELLOW}========================================${NC}"
+    echo -e "${YELLOW}  手动创建管理员账号${NC}"
+    echo -e "${YELLOW}========================================${NC}"
+
+    while true; do
+        read -rp "请输入管理员用户名: " MANUAL_USER
+        if [ -z "$MANUAL_USER" ]; then
+            echo -e "${RED}用户名不能为空，请重新输入${NC}"
+            continue
+        fi
+        break
+    done
+
+    while true; do
+        read -rsp "请输入管理员密码: " MANUAL_PASS
+        echo ""
+        if [ -z "$MANUAL_PASS" ]; then
+            echo -e "${RED}密码不能为空，请重新输入${NC}"
+            continue
+        fi
+        read -rsp "请再次确认密码: " MANUAL_PASS2
+        echo ""
+        if [ "$MANUAL_PASS" != "$MANUAL_PASS2" ]; then
+            echo -e "${RED}两次输入的密码不一致，请重新输入${NC}"
+            continue
+        fi
+        break
+    done
+
+    echo -e "${YELLOW}正在生成密码哈希...${NC}"
+    export PATH=$PATH:/usr/local/go/bin
+
+    cat > /tmp/gen_hash.go << 'GOEOF'
+package main
+import (
+    "fmt"
+    "golang.org/x/crypto/bcrypt"
+    "os"
+)
+func main() {
+    pass := os.Getenv("TEMP_PASS")
+    h, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+    if err != nil {
+        fmt.Println("ERROR:", err)
+        return
+    }
+    fmt.Println(string(h))
+}
+GOEOF
+
+    export TEMP_PASS="$MANUAL_PASS"
+    HASH=$(go run /tmp/gen_hash.go)
+    unset TEMP_PASS
+    rm -f /tmp/gen_hash.go
+
+    echo -e "${YELLOW}正在写入数据库...${NC}"
+    docker exec -i cloudprobe-postgres psql -U cpuser -d cloudprobe -c "
+    INSERT INTO users (username, password, role, status, created_at, updated_at)
+    VALUES ('${MANUAL_USER}', '${HASH}', 'admin', 'active', NOW(), NOW())
+    ON CONFLICT (username) DO UPDATE SET password = EXCLUDED.password;
+    "
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}管理员账号创建成功！${NC}"
+        ADMIN_USER=$MANUAL_USER
+        ADMIN_PASS=$MANUAL_PASS
+    else
+        echo -e "${RED}管理员账号创建失败，请手动执行 reset-password.sh${NC}"
+    fi
+fi
+
 # 设置文档中显示的账号（如果用户跳过初始化则显示默认值）
 DOC_ADMIN_USER=${ADMIN_USER:-admin}
 DOC_ADMIN_PASS=${ADMIN_PASS:-admin}
 
 # 生成部署信息文档
-echo -e "${YELLOW}[9/9] 生成部署信息文档...${NC}"
+echo -e "${YELLOW}[10/10] 生成部署信息文档...${NC}"
 DEPLOY_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 DEPLOY_INFO_FILE="${INSTALL_DIR}/deploy-info.txt"
 
