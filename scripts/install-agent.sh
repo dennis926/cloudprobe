@@ -151,7 +151,14 @@ install_binary() {
     mkdir -p "$INSTALL_DIR"
     mkdir -p "$CONFIG_DIR"
 
-    cp "$TMP_FILE" "$INSTALL_DIR/$BINARY_NAME"
+    # 先停止已有服务（避免 Text file busy）
+    if systemctl is-active "$SERVICE_NAME" &>/dev/null; then
+        echo -e "${YELLOW}停止已有的 Agent 服务...${NC}"
+        systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+        sleep 1
+    fi
+
+    cp -f "$TMP_FILE" "$INSTALL_DIR/$BINARY_NAME"
     chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
     # 创建配置文件
