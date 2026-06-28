@@ -240,18 +240,19 @@ const saveServer = async () => {
         selectedToken.value = token
         const cmd = `curl -fsSL ${window.location.origin}/install.sh | bash -s -- "${token}"`
 
+        // 复制到剪贴板（HTTPS环境可用clipboard API，HTTP降级）
         try {
-          await navigator.clipboard.writeText(cmd)
-          ElMessage.success('安装命令已复制到剪贴板')
-        } catch {
-          ElMessage.info('请手动复制安装命令')
-        }
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(cmd)
+            ElMessage.success('安装命令已复制到剪贴板')
+          }
+        } catch { /* ignore */ }
 
         ElMessageBox.alert(
           `<div style="margin-top: 12px;">
             <p style="margin-bottom: 8px; color: #94a3b8;">在目标服务器上执行以下命令：</p>
-            <code style="display: block; padding: 12px; background: #0f172a; border-radius: 8px; color: #e2e8f0; font-size: 13px; word-break: break-all; border: 1px solid #1e293b;">${cmd}</code>
-            <p style="margin-top: 8px; color: #94a3b8; font-size: 12px;">Agent 安装后会自动上报系统信息</p>
+            <code id="install-cmd" style="display: block; padding: 12px; background: #0f172a; border-radius: 8px; color: #e2e8f0; font-size: 13px; word-break: break-all; border: 1px solid #1e293b; user-select: all;">${cmd}</code>
+            <p style="margin-top: 8px; color: #94a3b8; font-size: 12px;">点击代码框可全选，Ctrl+C 复制。Agent 安装后会自动上报系统信息</p>
           </div>`,
           '安装命令',
           {
