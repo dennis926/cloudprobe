@@ -30,10 +30,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" :width="isMobile ? '160' : '240'" fixed="right">
+        <el-table-column label="操作" :width="isMobile ? '200' : '320'" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="$router.push(`/servers/${row.id}`)">详情</el-button>
             <el-button link type="primary" @click="$router.push(`/ssh/${row.id}`)">SSH</el-button>
+            <el-button link type="success" @click="showInstallCmd(row)">安装</el-button>
             <el-button link type="warning" @click="showDialog(row)">编辑</el-button>
             <el-button link type="danger" @click="deleteServer(row.id)">删除</el-button>
           </template>
@@ -41,7 +42,7 @@
       </el-table>
 
       <!-- Agent 安装提示 -->
-      <div class="install-tip" v-if="servers.length > 0">
+      <div class="install-tip" v-if="servers.length > 0 && selectedToken">
         <el-alert title="Agent 安装命令" type="info" :closable="false">
           <template #default>
             <code class="install-cmd">curl -fsSL {{ baseUrl }}/install.sh | bash -s -- "{{ selectedToken }}"</code>
@@ -74,11 +75,48 @@
         <el-form-item label="SSH用户">
           <el-input v-model="form.ssh_user" placeholder="root" />
         </el-form-item>
-        <el-form-item label="SSH密码">
-          <el-input v-model="form.ssh_password" type="password" show-password placeholder="可选，也可用密钥认证" />
-        </el-form-item>
         <el-form-item label="分组">
-          <el-input v-model="form.group_name" placeholder="可选，如：生产环境" />
+          <el-select v-model="form.group_id" placeholder="选择分组" clearable style="width: 100%">
+            <el-option v-for="g in groups" :key="g.id" :label="g.name" :value="g.id" />
+          </el-select>
+        </el-form-item>
+
+        <el-divider content-position="left">账单信息</el-divider>
+        <el-form-item label="付费类型">
+          <el-select v-model="form.billing_type" placeholder="选择付费类型" clearable style="width: 100%">
+            <el-option label="预付费" value="prepaid" />
+            <el-option label="后付费" value="postpaid" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="计费周期">
+          <el-select v-model="form.bill_cycle" placeholder="选择计费周期" clearable style="width: 100%">
+            <el-option label="月付" value="monthly" />
+            <el-option label="季付" value="quarterly" />
+            <el-option label="半年付" value="semiannual" />
+            <el-option label="年付" value="yearly" />
+            <el-option label="两年付" value="biennial" />
+            <el-option label="三年付" value="triennial" />
+            <el-option label="免费" value="free" />
+            <el-option label="按量计费" value="payg" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="价格">
+          <el-input-number v-model="form.bill_price" :min="0" :precision="2" placeholder="0" />
+          <span style="margin-left: 8px; color: #94a3b8; font-size: 13px;">元</span>
+        </el-form-item>
+        <el-form-item label="到期时间">
+          <el-date-picker v-model="form.bill_expired_at" type="date" placeholder="选择到期时间" value-format="YYYY-MM-DDTHH:mm:ssZ" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="自动续费">
+          <el-switch v-model="form.bill_auto_renewal" />
+        </el-form-item>
+
+        <el-divider content-position="left">备注</el-divider>
+        <el-form-item label="公开备注">
+          <el-input v-model="form.public_note" type="textarea" :rows="2" placeholder="所有用户可见" />
+        </el-form-item>
+        <el-form-item label="私有备注">
+          <el-input v-model="form.private_note" type="textarea" :rows="2" placeholder="仅管理员可见" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -108,7 +146,8 @@ onUnmounted(() => window.removeEventListener('resize', checkMobile))
 const isEdit = ref(false)
 const saving = ref(false)
 const selectedToken = ref('')
-const form = ref<any>({
+
+const defaultForm = () => ({
   name: '',
   ip_public: '',
   ip_local: '',
@@ -116,9 +155,17 @@ const form = ref<any>({
   os_type: '',
   ssh_port: 22,
   ssh_user: 'root',
-  ssh_password: '',
-  group_name: '',
+  group_id: undefined as number | undefined,
+  billing_type: '',
+  bill_cycle: '',
+  bill_price: 0,
+  bill_expired_at: '',
+  bill_auto_renewal: true,
+  public_note: '',
+  private_note: '',
 })
+
+const form = ref<any>(defaultForm())
 
 const loadGroups = async () => {
   const res: any = await api.getGroups()
@@ -138,17 +185,34 @@ const loadServers = async () => {
   }
 }
 
+const showInstallCmd = async (row: any) => {
+  try {
+    const res: any = await api.getInstallCommand(row.id)
+    await navigator.clipboard.writeText(res.data?.command || '')
+    ElMessage.success('安装命令已复制到剪贴板')
+  } catch {
+    ElMessage.error('获取安装命令失败')
+  }
+}
+
 const showDialog = (row?: any) => {
   if (row) {
     isEdit.value = true
-    form.value = { ...row }
-    selectedToken.value = row.agent_token
+    form.value = {
+      ...row,
+      group_id: row.group_id,
+      billing_type: row.bill?.billing_type || '',
+      bill_cycle: row.bill?.cycle || '',
+      bill_price: row.bill?.price || 0,
+      bill_expired_at: row.bill?.expired_at || '',
+      bill_auto_renewal: row.bill?.auto_renewal ?? true,
+      public_note: row.public_note || '',
+      private_note: row.private_note || '',
+    }
+    selectedToken.value = row.agent_token || selectedToken.value
   } else {
     isEdit.value = false
-    form.value = {
-      name: '', ip_public: '', ip_local: '', location: '', os_type: '',
-      ssh_port: 22, ssh_user: 'root', ssh_password: '', group_name: '',
-    }
+    form.value = defaultForm()
   }
   dialogVisible.value = true
 }
@@ -226,6 +290,15 @@ watch(filterGroup, () => loadServers())
   cursor: pointer;
 }
 .install-cmd:hover { background: rgba(56, 189, 248, 0.08); }
+
+.page-card :deep(.el-divider__text) {
+  background: transparent;
+  color: #94a3b8;
+  font-size: 13px;
+}
+.page-card :deep(.el-divider) {
+  border-top-color: #1e293b;
+}
 
 @media (max-width: 768px) {
   .page-header { flex-wrap: wrap; gap: 8px; }

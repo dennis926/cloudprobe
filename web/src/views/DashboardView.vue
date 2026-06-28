@@ -59,12 +59,138 @@
         <div class="card-header">
           <span>服务器状态</span>
           <div class="card-actions">
+            <div class="view-toggle">
+              <el-tooltip content="网格视图" placement="top">
+                <el-button
+                  :type="viewMode === 'grid' ? 'primary' : 'default'"
+                  :icon="Grid"
+                  size="small"
+                  circle
+                  @click="viewMode = 'grid'"
+                />
+              </el-tooltip>
+              <el-tooltip content="表格视图" placement="top">
+                <el-button
+                  :type="viewMode === 'table' ? 'primary' : 'default'"
+                  :icon="List"
+                  size="small"
+                  circle
+                  @click="viewMode = 'table'"
+                />
+              </el-tooltip>
+            </div>
             <el-button type="primary" :icon="Plus" @click="$router.push('/servers')">管理</el-button>
           </div>
         </div>
       </template>
 
+      <!-- 网格卡片视图 -->
+      <div v-if="viewMode === 'grid'" class="server-grid">
+        <div
+          v-for="server in servers"
+          :key="server.id"
+          class="server-card"
+          :class="{ 'is-online': server.status === 'online', 'is-offline': server.status === 'offline' }"
+        >
+          <!-- 卡片头部：名称 + 状态 + IP -->
+          <div class="sc-header">
+            <div class="sc-title-row">
+              <span class="sc-status-dot" :class="server.status === 'online' ? 'dot-online' : 'dot-offline'"></span>
+              <span class="sc-name">{{ server.name }}</span>
+            </div>
+            <div class="sc-ip-row">
+              <span class="sc-ip">
+                <template v-if="ipVisibility[server.id]">
+                  {{ server.ip_public || server.public_ip || '-' }}
+                </template>
+                <template v-else>***.***.***</template>
+              </span>
+              <el-icon class="sc-ip-toggle" @click="toggleIP(server.id)">
+                <View v-if="ipVisibility[server.id]" />
+                <Hide v-else />
+              </el-icon>
+            </div>
+            <div class="sc-location" v-if="server.location">
+              {{ server.location }}
+            </div>
+          </div>
+
+          <!-- 资源使用率 -->
+          <div class="sc-metrics">
+            <div class="sc-metric">
+              <div class="sc-metric-label">CPU</div>
+              <div class="sc-metric-bar">
+                <div class="sc-bar-track">
+                  <div
+                    class="sc-bar-fill"
+                    :style="{ width: getServerMetric(server.id, 'cpu_percent') + '%', background: getBarColor(getServerMetric(server.id, 'cpu_percent')) }"
+                  ></div>
+                </div>
+                <span class="sc-metric-val" :style="{ color: getBarColor(getServerMetric(server.id, 'cpu_percent')) }">
+                  {{ getServerMetric(server.id, 'cpu_percent') }}%
+                </span>
+              </div>
+            </div>
+            <div class="sc-metric">
+              <div class="sc-metric-label">内存</div>
+              <div class="sc-metric-bar">
+                <div class="sc-bar-track">
+                  <div
+                    class="sc-bar-fill"
+                    :style="{ width: getServerMetric(server.id, 'memory_percent') + '%', background: getBarColor(getServerMetric(server.id, 'memory_percent')) }"
+                  ></div>
+                </div>
+                <span class="sc-metric-val" :style="{ color: getBarColor(getServerMetric(server.id, 'memory_percent')) }">
+                  {{ getServerMetric(server.id, 'memory_percent') }}%
+                </span>
+              </div>
+            </div>
+            <div class="sc-metric">
+              <div class="sc-metric-label">磁盘</div>
+              <div class="sc-metric-bar">
+                <div class="sc-bar-track">
+                  <div
+                    class="sc-bar-fill"
+                    :style="{ width: getServerMetric(server.id, 'disk_percent') + '%', background: getBarColor(getServerMetric(server.id, 'disk_percent')) }"
+                  ></div>
+                </div>
+                <span class="sc-metric-val" :style="{ color: getBarColor(getServerMetric(server.id, 'disk_percent')) }">
+                  {{ getServerMetric(server.id, 'disk_percent') }}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 流量信息 -->
+          <div class="sc-traffic">
+            <span class="sc-traffic-item">
+              <span class="sc-traffic-arrow upload">&#x2191;</span>
+              {{ getTrafficRate(server.id, 'upload') }}
+            </span>
+            <span class="sc-traffic-item">
+              <span class="sc-traffic-arrow download">&#x2193;</span>
+              {{ getTrafficRate(server.id, 'download') }}
+            </span>
+          </div>
+
+          <!-- 到期时间 -->
+          <div v-if="getExpiryInfo(server)" class="sc-expiry">
+            <span class="sc-expiry-text" :style="{ color: getExpiryInfo(server)!.color }">
+              {{ getExpiryInfo(server)!.text }}
+            </span>
+          </div>
+
+          <!-- 卡片底部操作 -->
+          <div class="sc-footer">
+            <el-button link type="primary" size="small" @click="$router.push(`/servers/${server.id}`)">详情</el-button>
+            <el-button link type="primary" size="small" @click="$router.push(`/ssh/${server.id}`)">SSH</el-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 表格视图 -->
       <el-table
+        v-if="viewMode === 'table'"
         :data="servers"
         style="width: 100%"
         :header-cell-style="{ background: '#1e293b', color: '#94a3b8' }"
@@ -187,8 +313,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { Cpu, CircleCheck, CircleClose, Bell, Plus } from '@element-plus/icons-vue'
+import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
+import { Cpu, CircleCheck, CircleClose, Bell, Plus, Grid, List, View, Hide } from '@element-plus/icons-vue'
 import { api } from '@/api/request'
 import { useWebSocket } from '@/composables/useWebSocket'
 
@@ -197,6 +323,54 @@ const ws = useWebSocket()
 const stats = ref({ total: 0, online: 0, offline: 0, alerts: 0 })
 const servers = ref<any[]>([])
 const recentAlerts = ref<any[]>([])
+
+// 视图模式：grid（网格卡片）/ table（表格）
+const viewMode = ref<string>(localStorage.getItem('dashboard-view-mode') || 'grid')
+watch(viewMode, (val) => localStorage.setItem('dashboard-view-mode', val))
+
+// IP 可见性控制
+const ipVisibility = reactive<Record<number, boolean>>({})
+const toggleIP = (id: number) => {
+  ipVisibility[id] = !ipVisibility[id]
+}
+
+// 进度条颜色（蓝 <70% / 橙 <90% / 红 >=90%）
+const getBarColor = (val: number): string => {
+  if (val >= 90) return '#ef4444'
+  if (val >= 70) return '#f59e0b'
+  return '#3b82f6'
+}
+
+// 格式化流量
+const formatBytes = (bytes: number): string => {
+  if (!bytes || bytes <= 0) return '0 B/s'
+  const units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
+  let i = 0
+  let val = bytes
+  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++ }
+  return `${val.toFixed(1)} ${units[i]}`
+}
+
+// 到期时间倒计时
+const getExpiryInfo = (server: any): { text: string; color: string } | null => {
+  if (!server.bill || !server.bill.expired_at) return null
+  const now = Date.now()
+  const expiredAt = new Date(server.bill.expired_at).getTime()
+  const diff = expiredAt - now
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+  if (days <= 0) return { text: '已过期', color: '#ef4444' }
+  if (days <= 30) return { text: `${days}天后到期`, color: '#ef4444' }
+  if (days <= 90) return { text: `${days}天后到期`, color: '#f59e0b' }
+  return { text: `${days}天后到期`, color: '#64748b' }
+}
+
+// 获取上行/下行速率
+const getTrafficRate = (serverId: number, direction: 'upload' | 'download'): string => {
+  const m = ws.getMetrics(serverId)
+  if (!m) return '0 B/s'
+  const key = direction === 'upload' ? 'net_upload' : 'net_download'
+  return formatBytes(Number(m[key]) || 0)
+}
 
 // 定时轮询（兜底 + 首次加载）
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -333,6 +507,7 @@ onUnmounted(() => {
   color: #f1f5f9; font-weight: 600;
 }
 .dashboard-card :deep(.el-card__body) { padding: 0; }
+.dashboard-card :deep(.el-card__body) .server-grid { padding: 16px; }
 .dashboard-card :deep(.el-table) { background: transparent; }
 .dashboard-card :deep(.el-table__row) { background: transparent; }
 .dashboard-card :deep(.el-table__row:hover > td) { background: rgba(56, 189, 248, 0.04) !important; }
@@ -357,5 +532,187 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .stats-row .el-col { margin-bottom: 12px; }
   .stat-value { font-size: 22px; }
+}
+
+/* ========== 视图切换按钮 ========== */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 8px;
+}
+
+/* ========== 网格卡片布局 ========== */
+.server-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 16px;
+}
+
+@media (max-width: 1200px) {
+  .server-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .server-grid { grid-template-columns: 1fr; }
+}
+
+/* ========== 服务器卡片 ========== */
+.server-card {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.server-card:hover {
+  transform: translateY(-2px);
+  border-color: #334155;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.server-card.is-online {
+  border-left: 3px solid #22c55e;
+}
+.server-card.is-offline {
+  border-left: 3px solid #ef4444;
+}
+
+/* 卡片头部 */
+.sc-header {
+  margin-bottom: 12px;
+}
+.sc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.sc-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sc-status-dot.dot-online {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+}
+.sc-status-dot.dot-offline {
+  background: #ef4444;
+}
+.sc-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-ip-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+.sc-ip {
+  font-family: 'Consolas', monospace;
+}
+.sc-ip-toggle {
+  cursor: pointer;
+  color: #64748b;
+  transition: color 0.2s;
+}
+.sc-ip-toggle:hover {
+  color: #94a3b8;
+}
+.sc-location {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* 资源使用率 */
+.sc-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sc-metric-label {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 3px;
+}
+.sc-metric-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sc-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(51, 65, 85, 0.6);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.sc-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  min-width: 0;
+}
+.sc-metric-val {
+  font-size: 12px;
+  font-family: 'Consolas', monospace;
+  min-width: 38px;
+  text-align: right;
+  font-weight: 600;
+}
+
+/* 流量信息 */
+.sc-traffic {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid #1e293b;
+  border-bottom: 1px solid #1e293b;
+  margin-bottom: 8px;
+}
+.sc-traffic-item {
+  font-size: 12px;
+  color: #94a3b8;
+  font-family: 'Consolas', monospace;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sc-traffic-arrow {
+  font-size: 13px;
+}
+.sc-traffic-arrow.upload {
+  color: #22c55e;
+}
+.sc-traffic-arrow.download {
+  color: #3b82f6;
+}
+
+/* 到期时间 */
+.sc-expiry {
+  margin-bottom: 8px;
+}
+.sc-expiry-text {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 卡片底部 */
+.sc-footer {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
 }
 </style>

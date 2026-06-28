@@ -81,6 +81,7 @@ export const api = {
   createServer: (data: any) => request.post('/servers', data),
   updateServer: (id: number, data: any) => request.put(`/servers/${id}`, data),
   deleteServer: (id: number) => request.delete(`/servers/${id}`),
+  getInstallCommand: (serverId: number) => request.get(`/servers/${serverId}/install`),
 
   // 监控
   getMetrics: (id: number) => request.get(`/servers/${id}/metrics`),

@@ -10,6 +10,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -139,9 +140,27 @@ func (s *Server) handleListServers(c *gin.Context) {
 		db = db.Where("status = ?", status)
 	}
 
+	// 对非admin用户，隐藏 Hidden=true 的服务器
+	role, _ := c.Get("role")
+	isAdmin := role == "admin"
+	if !isAdmin {
+		db = db.Where("hidden = ?", false)
+	}
+
+	// 按 weight desc, id desc 排序
+	db = db.Order("weight DESC, id DESC")
+
 	if err := db.Find(&servers).Error; err != nil {
 		api.JSONError(c, http.StatusInternalServerError, "failed to list servers")
 		return
+	}
+
+	// 对非admin用户，清空 IPPublic 和 PrivateNote
+	if !isAdmin {
+		for i := range servers {
+			servers[i].IPPublic = ""
+			servers[i].PrivateNote = ""
+		}
 	}
 
 	api.JSONSuccess(c, servers)
@@ -162,6 +181,18 @@ func (s *Server) handleGetServer(c *gin.Context) {
 		api.JSONError(c, http.StatusNotFound, "server not found")
 		return
 	}
+
+	// 对非admin用户，隐藏 Hidden=true 的服务器，并清空敏感字段
+	role, _ := c.Get("role")
+	if role != "admin" {
+		if server.Hidden {
+			api.JSONError(c, http.StatusNotFound, "server not found")
+			return
+		}
+		server.IPPublic = ""
+		server.PrivateNote = ""
+	}
+
 	api.JSONSuccess(c, server)
 }
 
@@ -174,7 +205,10 @@ func (s *Server) handleGetServer(c *gin.Context) {
 // @Success 200 {object} api.SuccessResponse{data=model.Server}
 // @Router /servers [post]
 func (s *Server) handleCreateServer(c *gin.Context) {
-	var req model.Server
+	var req struct {
+		model.Server
+		Bill *model.ServerBill `json:"bill,omitempty"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		api.JSONError(c, http.StatusBadRequest, "invalid request")
 		return
@@ -183,12 +217,22 @@ func (s *Server) handleCreateServer(c *gin.Context) {
 	req.AgentToken = uuid.New().String()
 	req.Status = "offline"
 
-	if err := database.GetDB().Create(&req).Error; err != nil {
+	if err := database.GetDB().Create(&req.Server).Error; err != nil {
 		api.JSONError(c, http.StatusInternalServerError, "failed to create server")
 		return
 	}
 
-	api.JSONSuccess(c, req)
+	// 如果提供了 billing 数据，同时创建 ServerBill 记录
+	if req.Bill != nil {
+		req.Bill.ServerID = req.Server.ID
+		if err := database.GetDB().Create(req.Bill).Error; err != nil {
+			api.JSONError(c, http.StatusInternalServerError, "failed to create server bill")
+			return
+		}
+		req.Server.Bill = req.Bill
+	}
+
+	api.JSONSuccess(c, req.Server)
 }
 
 // @Summary 更新服务器
@@ -230,6 +274,36 @@ func (s *Server) handleDeleteServer(c *gin.Context) {
 		return
 	}
 	api.JSONSuccess(c, nil)
+}
+
+// @Summary 获取Agent安装命令
+// @Description 获取指定服务器的 Agent 安装命令
+// @Tags 服务器
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "服务器ID"
+// @Success 200 {object} api.SuccessResponse{data=object{command=string}}
+// @Failure 404 {object} api.ErrorResponse
+// @Router /servers/{id}/install [get]
+func (s *Server) handleInstallCommand(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var server model.Server
+	if err := database.GetDB().First(&server, id).Error; err != nil {
+		api.JSONError(c, http.StatusNotFound, "server not found")
+		return
+	}
+
+	host := c.Request.Host
+	scheme := "http"
+	if c.Request.TLS != nil {
+		scheme = "https"
+	}
+
+	command := fmt.Sprintf(`curl -fsSL %s://%s/install.sh | bash -s -- "%s"`, scheme, host, server.AgentToken)
+
+	api.JSONSuccess(c, gin.H{
+		"command": command,
+	})
 }
 
 // ==================== Metrics Handlers ====================

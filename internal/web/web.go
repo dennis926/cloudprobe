@@ -132,6 +132,7 @@ func (s *Server) initRoutes() {
 			authorized.POST("/servers", auth.AdminRequired(), s.handleCreateServer)
 			authorized.PUT("/servers/:id", auth.AdminRequired(), s.handleUpdateServer)
 			authorized.DELETE("/servers/:id", auth.AdminRequired(), s.handleDeleteServer)
+			authorized.GET("/servers/:id/install", s.handleInstallCommand)
 
 			// 服务器分组
 			authorized.GET("/groups", s.handleListGroups)

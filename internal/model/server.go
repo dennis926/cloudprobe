@@ -28,6 +28,10 @@ type Server struct {
 	AgentToken   string         `gorm:"size:64;uniqueIndex" json:"-"`
 	Tags         []ServerTag    `json:"tags,omitempty"`
 	Bill         *ServerBill    `json:"bill,omitempty"`
+	Hidden       bool           `gorm:"default:false" json:"hidden"`         // 对游客隐藏（默认false）
+	PublicNote   string         `gorm:"size:500" json:"public_note"`         // 公开备注（所有用户可见）
+	PrivateNote  string         `gorm:"size:500" json:"private_note"`        // 私有备注（仅管理员可见）
+	Weight       int            `gorm:"default:0" json:"weight"`             // 排序权重（默认0）
 	LastSeenAt   *time.Time     `json:"last_seen_at"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
@@ -54,12 +58,15 @@ type ServerTag struct {
 
 // ServerBill 服务器账单信息
 type ServerBill struct {
-	ID         uint      `gorm:"primarykey" json:"id"`
-	ServerID   uint      `gorm:"uniqueIndex" json:"server_id"`
-	Price      float64   `json:"price"`
-	Currency   string    `gorm:"size:10;default:CNY" json:"currency"`
-	Cycle      string    `gorm:"size:20" json:"cycle"` // monthly / yearly
-	RenewDate  *time.Time `json:"renew_date"`
-	Provider   string    `gorm:"size:100" json:"provider"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID          uint       `gorm:"primarykey" json:"id"`
+	ServerID    uint       `gorm:"uniqueIndex" json:"server_id"`
+	Price       float64    `json:"price"`
+	Currency    string     `gorm:"size:10;default:CNY" json:"currency"`
+	Cycle       string     `gorm:"size:20" json:"cycle"`                // 月付/季付/半年付/年付/两年付/三年付
+	RenewDate   *time.Time `json:"renew_date"`
+	ExpiredAt   *time.Time `json:"expired_at"`                          // 到期时间
+	AutoRenewal bool       `gorm:"default:true" json:"auto_renewal"`    // 自动续费（默认true）
+	BillingType string     `gorm:"size:20" json:"billing_type"`          // 付费类型（预付费/后付费）
+	Provider    string     `gorm:"size:100" json:"provider"`
+	CreatedAt   time.Time  `json:"created_at"`
 }
