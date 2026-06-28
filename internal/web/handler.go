@@ -198,43 +198,37 @@ func (s *Server) handleGetServer(c *gin.Context) {
 	api.JSONSuccess(c, server)
 }
 
-// @Summary 创建服务器
+// @Summary 创建服务器（添加监控节点）
 // @Tags 服务器
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param body body model.Server true "服务器信息"
+// @Param body body object{name=string,group_id=uint} true "监控节点信息"
 // @Success 200 {object} api.SuccessResponse{data=model.Server}
 // @Router /servers [post]
 func (s *Server) handleCreateServer(c *gin.Context) {
 	var req struct {
-		model.Server
-		Bill *model.ServerBill `json:"bill,omitempty"`
+		Name    string `json:"name"`
+		GroupID *uint  `json:"group_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		api.JSONError(c, http.StatusBadRequest, "invalid request")
 		return
 	}
 
-	req.AgentToken = uuid.New().String()
-	req.Status = "offline"
+	server := model.Server{
+		Name:       req.Name,
+		GroupID:    req.GroupID,
+		AgentToken: uuid.New().String(),
+		Status:     "offline",
+	}
 
-	if err := database.GetDB().Create(&req.Server).Error; err != nil {
+	if err := database.GetDB().Create(&server).Error; err != nil {
 		api.JSONError(c, http.StatusInternalServerError, "failed to create server")
 		return
 	}
 
-	// 如果提供了 billing 数据，同时创建 ServerBill 记录
-	if req.Bill != nil {
-		req.Bill.ServerID = req.Server.ID
-		if err := database.GetDB().Create(req.Bill).Error; err != nil {
-			api.JSONError(c, http.StatusInternalServerError, "failed to create server bill")
-			return
-		}
-		req.Server.Bill = req.Bill
-	}
-
-	api.JSONSuccess(c, req.Server)
+	api.JSONSuccess(c, server)
 }
 
 // @Summary 更新服务器
@@ -248,18 +242,49 @@ func (s *Server) handleCreateServer(c *gin.Context) {
 // @Router /servers/{id} [put]
 func (s *Server) handleUpdateServer(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	var req model.Server
+	var server model.Server
+	if err := database.GetDB().First(&server, id).Error; err != nil {
+		api.JSONError(c, http.StatusNotFound, "server not found")
+		return
+	}
+
+	var req struct {
+		model.Server
+		Bill *model.ServerBill `json:"bill,omitempty"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		api.JSONError(c, http.StatusBadRequest, "invalid request")
 		return
 	}
 
-	if err := database.GetDB().Model(&model.Server{}).Where("id = ?", id).Updates(&req).Error; err != nil {
+	// 可手动编辑的字段
+	updates := map[string]interface{}{
+		"name":         req.Name,
+		"location":     req.Location,
+		"group_id":     req.GroupID,
+		"hidden":       req.Hidden,
+		"public_note":  req.PublicNote,
+		"private_note": req.PrivateNote,
+		"weight":       req.Weight,
+		"ssh_port":     req.SSHPort,
+		"ssh_user":     req.SSHUser,
+	}
+
+	if err := database.GetDB().Model(&server).Updates(updates).Error; err != nil {
 		api.JSONError(c, http.StatusInternalServerError, "failed to update server")
 		return
 	}
 
-	api.JSONSuccess(c, nil)
+	// 更新账单信息
+	if req.Bill != nil {
+		req.Bill.ServerID = server.ID
+		database.GetDB().Where("server_id = ?", server.ID).Delete(&model.ServerBill{})
+		database.GetDB().Create(req.Bill)
+	}
+
+	// 返回更新后的完整数据
+	database.GetDB().Preload("Group").Preload("Bill").First(&server, id)
+	api.JSONSuccess(c, server)
 }
 
 // @Summary 删除服务器

@@ -13,10 +13,11 @@ import (
 
 // Reporter 数据上报器
 type Reporter struct {
-	cfg       *config.Config
-	collector *collector.Collector
-	ws        *websocket.Conn
-	done      chan struct{}
+	cfg           *config.Config
+	collector     *collector.Collector
+	ws            *websocket.Conn
+	done          chan struct{}
+	reportedSystem bool
 }
 
 // New 创建上报器
@@ -106,6 +107,7 @@ func (r *Reporter) connect() error {
 	}
 
 	r.ws = ws
+	r.reportedSystem = false
 	fmt.Println("Connected to dashboard")
 
 	// 启动消息读取协程
@@ -152,5 +154,36 @@ func (r *Reporter) report() {
 		fmt.Printf("Report failed: %v\n", err)
 		r.ws.Close()
 		r.ws = nil
+	}
+
+	// 上报系统信息（仅在首次连接时）
+	if !r.reportedSystem {
+		r.reportedSystem = true
+		sysInfo := map[string]interface{}{
+			"type":  "system",
+			"token": r.cfg.Token,
+			"data": map[string]interface{}{
+				"hostname": metrics.Hostname,
+				"os":       metrics.OS,
+				"platform": metrics.Platform,
+				"cpu": map[string]interface{}{
+					"model":         metrics.CPU.ModelName,
+					"logical_count": metrics.CPU.LogicalCnt,
+				},
+				"memory": map[string]interface{}{
+					"total": metrics.Memory.Total,
+				},
+				"disk": []map[string]interface{}{
+					{
+						"total": metrics.Disk[0].Total,
+					},
+				},
+				"ip": map[string]interface{}{
+					// IP 将由 Dashboard 端从连接中获取
+				},
+			},
+			"time": time.Now().Unix(),
+		}
+		r.ws.WriteJSON(sysInfo)
 	}
 }

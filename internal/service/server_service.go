@@ -105,6 +105,42 @@ func (s *ServerService) UpdateServerInfo(serverID uint, info map[string]interfac
 		updates["os_version"] = v
 	}
 
+	// CPU 信息
+	if cpu, ok := info["cpu"].(map[string]interface{}); ok {
+		if model, ok := cpu["model"].(string); ok && model != "" {
+			updates["cpu_model"] = model
+		}
+		if cores, ok := cpu["logical_count"].(float64); ok && cores > 0 {
+			updates["cpu_cores"] = int(cores)
+		}
+	}
+
+	// 内存信息（MB）
+	if mem, ok := info["memory"].(map[string]interface{}); ok {
+		if total, ok := mem["total"].(float64); ok && total > 0 {
+			updates["memory_total"] = uint64(total / 1024 / 1024) // bytes -> MB
+		}
+	}
+
+	// 磁盘信息（GB，取第一个分区）
+	if disks, ok := info["disk"].([]interface{}); ok && len(disks) > 0 {
+		if disk, ok := disks[0].(map[string]interface{}); ok {
+			if total, ok := disk["total"].(float64); ok && total > 0 {
+				updates["disk_total"] = uint64(total / 1024 / 1024 / 1024) // bytes -> GB
+			}
+		}
+	}
+
+	// IP 地址
+	if ips, ok := info["ip"].(map[string]interface{}); ok {
+		if public, ok := ips["public"].(string); ok && public != "" {
+			updates["ip_public"] = public
+		}
+		if priv, ok := ips["private"].(string); ok && priv != "" {
+			updates["ip_private"] = priv
+		}
+	}
+
 	if len(updates) == 0 {
 		return nil
 	}

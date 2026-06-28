@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -140,6 +141,15 @@ func HandleAgentWebSocket(logger *zap.Logger) gin.HandlerFunc {
 
 		// 发送认证成功
 		ws.WriteJSON(DashboardMessage{Type: "auth_success"})
+
+		// 从 WebSocket 连接中提取 Agent 的公网 IP（如果服务器未设置 IP）
+		if server.IPPublic == "" {
+			remoteAddr := c.Request.RemoteAddr
+			host, _, _ := net.SplitHostPort(remoteAddr)
+			if host != "" {
+				database.GetDB().Model(&model.Server{}).Where("id = ?", server.ID).Update("ip_public", host)
+			}
+		}
 
 		// 启动心跳检测
 		go conn.heartbeatChecker()
