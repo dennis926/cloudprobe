@@ -219,8 +219,8 @@ const showDialog = (row?: any) => {
 }
 
 const saveServer = async () => {
-  if (isEdit.value && (!form.value.name || !form.value.ip_public)) {
-    ElMessage.warning('名称和公网IP为必填')
+  if (isEdit.value && !form.value.name) {
+    ElMessage.warning('名称为必填')
     return
   }
   saving.value = true
@@ -232,15 +232,22 @@ const saveServer = async () => {
       loadServers()
     } else {
       const res: any = await api.createServer(form.value)
-      ElMessage.success('节点创建成功')
+      dialogVisible.value = false
+      loadServers()
 
-      // 显示安装命令
       const token = res.data?.agent_token
       if (token) {
         selectedToken.value = token
         const cmd = `curl -fsSL ${window.location.origin}/install.sh | bash -s -- "${token}"`
 
-        await ElMessageBox.alert(
+        try {
+          await navigator.clipboard.writeText(cmd)
+          ElMessage.success('安装命令已复制到剪贴板')
+        } catch {
+          ElMessage.info('请手动复制安装命令')
+        }
+
+        ElMessageBox.alert(
           `<div style="margin-top: 12px;">
             <p style="margin-bottom: 8px; color: #94a3b8;">在目标服务器上执行以下命令：</p>
             <code style="display: block; padding: 12px; background: #0f172a; border-radius: 8px; color: #e2e8f0; font-size: 13px; word-break: break-all; border: 1px solid #1e293b;">${cmd}</code>
@@ -249,19 +256,14 @@ const saveServer = async () => {
           '安装命令',
           {
             dangerouslyUseHTMLString: true,
-            confirmButtonText: '复制命令',
+            confirmButtonText: '确定',
             showCancelButton: false,
             customStyle: { background: '#1e293b', border: '1px solid #334155', color: '#f1f5f9' },
-            callback: async () => {
-              await navigator.clipboard.writeText(cmd)
-              ElMessage.success('已复制到剪贴板')
-            }
           }
         )
+      } else {
+        ElMessage.success('节点创建成功')
       }
-
-      dialogVisible.value = false
-      loadServers()
     }
   } catch {
     ElMessage.error('操作失败')
