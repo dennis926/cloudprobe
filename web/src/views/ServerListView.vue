@@ -238,7 +238,8 @@ const saveServer = async () => {
       const token = res.data?.agent_token
       if (token) {
         selectedToken.value = token
-        const cmd = `curl -fsSL ${window.location.origin}/install.sh | bash -s -- "${token}"`
+        const origin = window.location.origin
+        const cmd = `curl -fsSL ${origin}/install.sh | bash -s -- "auto" "${origin.replace('http','ws')}/ws/agent" "${token}"`
 
         // 复制到剪贴板（HTTPS环境可用clipboard API，HTTP降级）
         try {

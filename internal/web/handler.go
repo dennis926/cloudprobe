@@ -326,7 +326,7 @@ func (s *Server) handleInstallCommand(c *gin.Context) {
 		scheme = "https"
 	}
 
-	command := fmt.Sprintf(`curl -fsSL %s://%s/install.sh | bash -s -- "%s"`, scheme, host, server.AgentToken)
+	command := fmt.Sprintf(`curl -fsSL %s://%s/install.sh | bash -s -- "auto" "%s://%s/ws/agent" "%s"`, scheme, host, scheme, host, server.AgentToken)
 
 	api.JSONSuccess(c, gin.H{
 		"command": command,

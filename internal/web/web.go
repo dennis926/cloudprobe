@@ -179,6 +179,13 @@ func (s *Server) initRoutes() {
 	// 静态文件（前端构建产物）
 	s.router.Static("/assets", "./web/dist/assets")
 	s.router.StaticFile("/", "./web/dist/index.html")
+
+	// Agent 安装脚本（无需认证）
+	s.router.GET("/install.sh", func(c *gin.Context) {
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.File("./scripts/install-agent.sh")
+	})
+
 	s.router.NoRoute(func(c *gin.Context) {
 		c.File("./web/dist/index.html")
 	})

@@ -2,8 +2,8 @@
 #
 # CloudProbe Agent 一键安装脚本
 # 支持国内/海外双源下载
-# Usage: curl -fsSL https://your-domain.com/install.sh | bash -s -- [国内|海外] [dashboard_url] [token]
-#
+# Usage: curl -fsSL http://your-dashboard:port/install.sh | bash -s -- [token]
+#        curl -fsSL http://your-dashboard:port/install.sh | bash -s -- [region] [dashboard_url] [token]
 
 set -e
 
@@ -13,10 +13,21 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# 默认配置
-REGION="${1:-auto}"
-DASHBOARD_URL="${2:-}"
-AGENT_TOKEN="${3:-}"
+# 参数解析 - 支持两种格式：
+# 格式1（推荐）: 只传 token，自动从下载 URL 推断 Dashboard 地址
+# 格式2（完整）: region dashboard_url token
+if [ $# -eq 1 ]; then
+    AGENT_TOKEN="$1"
+    REGION="auto"
+    # 从脚本下载 URL 自动推断 Dashboard 地址
+    # 用户执行: curl http://host:port/install.sh | bash -s -- TOKEN
+    # 需要设置 DASHBOARD_URL 环境变量，或通过交互式输入
+    DASHBOARD_URL="${CP_DASHBOARD_URL:-}"
+else
+    REGION="${1:-auto}"
+    DASHBOARD_URL="${2:-}"
+    AGENT_TOKEN="${3:-}"
+fi
 
 # 下载源配置
 GITHUB_RELEASE="https://github.com/dennis926/cloudprobe/releases/latest/download"
