@@ -373,6 +373,15 @@ Redis 容器:      cloudprobe-redis (内部端口 6379)
   cd ${INSTALL_DIR} && git pull origin main && bash scripts/deploy-bt.sh
 
 ----------------------------------------
+  全新重新安装（如已卸载）
+----------------------------------------
+海外网络:
+  bash <(curl -fsSL https://raw.githubusercontent.com/dennis926/cloudprobe/main/scripts/deploy-bt.sh)
+
+国内网络:
+  bash <(curl -fsSL https://gitee.com/den7hon/cloudprobe/raw/main/scripts/deploy-bt.sh)
+
+----------------------------------------
   Agent 安装命令
 ----------------------------------------
 在被监控服务器上执行:

@@ -26,7 +26,26 @@ CloudProbe 是一款开源、自托管的一站式运维面板，集服务器监
 
 ## 快速开始
 
-### Docker Compose 部署
+### 方式一：宝塔面板一键部署（推荐）
+
+适用于已有宝塔面板的服务器，支持端口自动检测、交互式管理员初始化、Docker 一键构建：
+
+```bash
+# 海外网络
+bash <(curl -fsSL https://raw.githubusercontent.com/dennis926/cloudprobe/main/scripts/deploy-bt.sh)
+
+# 国内网络
+bash <(curl -fsSL https://gitee.com/den7hon/cloudprobe/raw/main/scripts/deploy-bt.sh)
+```
+
+脚本自动完成：
+- 检测网络环境，自动切换 GitHub/Gitee 源
+- 检测端口占用，支持自定义端口
+- 安装 Go 环境，编译检查
+- Docker 构建并启动服务
+- 交互式创建管理员账号（支持自定义用户名密码）
+
+### 方式二：Docker Compose 部署
 
 ```bash
 # 克隆仓库
