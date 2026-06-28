@@ -155,11 +155,12 @@ func (s *Server) handleListServers(c *gin.Context) {
 		return
 	}
 
-	// 对非admin用户，清空 IPPublic 和 PrivateNote
+	// 对非admin用户，清空敏感字段
 	if !isAdmin {
 		for i := range servers {
 			servers[i].IPPublic = ""
 			servers[i].PrivateNote = ""
+			servers[i].AgentToken = ""
 		}
 	}
 
@@ -191,6 +192,7 @@ func (s *Server) handleGetServer(c *gin.Context) {
 		}
 		server.IPPublic = ""
 		server.PrivateNote = ""
+		server.AgentToken = ""
 	}
 
 	api.JSONSuccess(c, server)

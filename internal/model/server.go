@@ -25,7 +25,7 @@ type Server struct {
 	SSHUser      string         `gorm:"size:50" json:"ssh_user"`
 	Status       string         `gorm:"size:20;default:offline" json:"status"` // online / offline
 	AgentVersion string         `gorm:"size:20" json:"agent_version"`
-	AgentToken   string         `gorm:"size:64;uniqueIndex" json:"-"`
+	AgentToken   string         `gorm:"size:64;uniqueIndex" json:"agent_token,omitempty"`
 	Tags         []ServerTag    `json:"tags,omitempty"`
 	Bill         *ServerBill    `json:"bill,omitempty"`
 	Hidden       bool           `gorm:"default:false" json:"hidden"`         // 对游客隐藏（默认false）
