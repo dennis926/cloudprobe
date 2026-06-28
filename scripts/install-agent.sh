@@ -30,9 +30,6 @@ else
 fi
 
 # 下载源配置
-GITHUB_RELEASE="https://github.com/dennis926/cloudprobe/releases/latest/download"
-GITEE_RELEASE="https://gitee.com/den7hon/cloudprobe/releases/latest/download"
-
 # 检测系统
 ARCH=$(uname -m)
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -52,29 +49,16 @@ case "$OS" in
 esac
 
 # 自动检测国内/海外
-if [ "$REGION" = "auto" ]; then
-    echo -e "${BLUE}正在检测网络环境...${NC}"
-    if curl -fsSL -m 5 https://gitee.com >/dev/null 2>&1; then
-        if curl -fsSL -m 5 https://github.com >/dev/null 2>&1; then
-            echo -e "${GREEN}检测到海外网络，使用 GitHub 源${NC}"
-            REGION="海外"
-        else
-            echo -e "${GREEN}检测到国内网络，使用 Gitee 源${NC}"
-            REGION="国内"
-        fi
-    else
-        echo -e "${GREEN}检测到海外网络，使用 GitHub 源${NC}"
-        REGION="海外"
-    fi
-fi
-
-# 选择下载源
-if [ "$REGION" = "国内" ] || [ "$REGION" = "cn" ] || [ "$REGION" = "CN" ]; then
-    DOWNLOAD_URL="$GITEE_RELEASE/cloudprobe-agent-${OS}-${ARCH}"
-    SOURCE="Gitee"
+# 从 DASHBOARD_URL 提取 HTTP 地址用于下载 Agent 二进制
+# 输入: ws://host:port/ws/agent 或 wss://host:port/ws/agent
+# 输出: http://host:port 或 https://host:port
+if [ -n "$DASHBOARD_URL" ]; then
+    HTTP_BASE=$(echo "$DASHBOARD_URL" | sed -E 's|^ws://|http://|; s|^wss://|https://|; s|/ws/agent$||')
+    DOWNLOAD_URL="$HTTP_BASE/agent/cloudprobe-agent"
+    SOURCE="Dashboard"
 else
-    DOWNLOAD_URL="$GITHUB_RELEASE/cloudprobe-agent-${OS}-${ARCH}"
-    SOURCE="GitHub"
+    echo -e "${RED}DASHBOARD_URL 未设置，无法下载 Agent${NC}"
+    exit 1
 fi
 
 BINARY_NAME="cloudprobe-agent"

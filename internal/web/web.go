@@ -186,6 +186,9 @@ func (s *Server) initRoutes() {
 		c.File("./scripts/install-agent.sh")
 	})
 
+	// Agent 二进制下载（无需认证）
+	s.router.StaticFile("/agent/cloudprobe-agent", "./cloudprobe-agent")
+
 	s.router.NoRoute(func(c *gin.Context) {
 		c.File("./web/dist/index.html")
 	})
