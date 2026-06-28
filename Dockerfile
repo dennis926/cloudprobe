@@ -33,6 +33,7 @@ WORKDIR /app
 
 COPY --from=builder /app/cloudprobe-dashboard /app/cloudprobe-agent /app/
 COPY --from=web-builder /app/web/dist /app/web/dist
+COPY --from=builder /app/scripts /app/scripts
 
 RUN mkdir -p /app/data /app/config /etc/cloudprobe
 
