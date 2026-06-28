@@ -18,6 +18,7 @@ import (
 	"cloudprobe/internal/agent"
 	"cloudprobe/internal/api"
 	"cloudprobe/internal/auth"
+	"cloudprobe/internal/cache"
 	"cloudprobe/internal/database"
 	"cloudprobe/internal/model"
 	"cloudprobe/internal/proxy"
@@ -349,6 +350,17 @@ func (s *Server) handleInstallCommand(c *gin.Context) {
 func (s *Server) handleGetMetrics(c *gin.Context) {
 	serverID, _ := strconv.Atoi(c.Param("id"))
 	metricType := c.Query("type")
+
+	// 如果没有查询参数，直接返回Redis最新实时数据
+	if metricType == "" && c.Query("start") == "" && c.Query("end") == "" {
+		data, err := cache.GetServerMetrics(uint(serverID))
+		if err != nil {
+			api.JSONSuccess(c, gin.H{})
+			return
+		}
+		api.JSONSuccess(c, data)
+		return
+	}
 
 	// 默认查询最近24小时
 	end := time.Now()

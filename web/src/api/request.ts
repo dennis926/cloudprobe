@@ -85,6 +85,7 @@ export const api = {
 
   // 监控
   getMetrics: (id: number) => request.get(`/servers/${id}/metrics`),
+  getServerMetrics: (id: number) => request.get(`/servers/${id}/metrics`),
   getRealtime: () => request.get('/metrics/realtime'),
 
   // 告警

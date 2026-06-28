@@ -1,8 +1,8 @@
 <template>
   <div class="dashboard">
-    <div class="ws-status" :class="{ active: ws.connected }">
+    <div class="ws-status active">
       <span class="ws-dot"></span>
-      {{ ws.connected ? '实时连接' : '离线' }}
+      自动刷新
     </div>
 
     <!-- 统计卡片 -->
@@ -316,13 +316,13 @@
 import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { Cpu, CircleCheck, CircleClose, Bell, Plus, Grid, List, View, Hide } from '@element-plus/icons-vue'
 import { api } from '@/api/request'
-import { useWebSocket } from '@/composables/useWebSocket'
-
-const ws = useWebSocket()
 
 const stats = ref({ total: 0, online: 0, offline: 0, alerts: 0 })
 const servers = ref<any[]>([])
 const recentAlerts = ref<any[]>([])
+
+// metrics 数据缓存
+const metricsData = reactive<Record<number, any>>({})
 
 // 视图模式：grid（网格卡片）/ table（表格）
 const viewMode = ref<string>(localStorage.getItem('dashboard-view-mode') || 'grid')
@@ -366,7 +366,7 @@ const getExpiryInfo = (server: any): { text: string; color: string } | null => {
 
 // 获取上行/下行速率
 const getTrafficRate = (serverId: number, direction: 'upload' | 'download'): string => {
-  const m = ws.getMetrics(serverId)
+  const m = metricsData[serverId]
   if (!m) return '0 B/s'
   const key = direction === 'upload' ? 'net_upload' : 'net_download'
   return formatBytes(Number(m[key]) || 0)
@@ -374,6 +374,7 @@ const getTrafficRate = (serverId: number, direction: 'upload' | 'download'): str
 
 // 定时轮询（兜底 + 首次加载）
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let metricsTimer: ReturnType<typeof setInterval> | null = null
 
 const loadData = async () => {
   try {
@@ -398,8 +399,21 @@ const loadData = async () => {
   }
 }
 
+const loadMetrics = async () => {
+  for (const s of servers.value) {
+    try {
+      const res: any = await api.getServerMetrics(s.id)
+      if (res.data) {
+        metricsData[s.id] = res.data
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
 const getServerMetric = (serverId: number, key: string): number => {
-  const m = ws.getMetrics(serverId)
+  const m = metricsData[serverId]
   if (m && m[key] !== undefined) return Math.round(Number(m[key]))
   return 0
 }
@@ -424,15 +438,16 @@ const formatTime = (t: string): string => {
   return new Date(t).toLocaleString('zh-CN')
 }
 
-onMounted(() => {
-  loadData()
-  ws.connect()
+onMounted(async () => {
+  await loadData()
+  await loadMetrics()
+  metricsTimer = setInterval(loadMetrics, 5000)
   pollTimer = setInterval(loadData, 60000)
 })
 
 onUnmounted(() => {
+  if (metricsTimer) clearInterval(metricsTimer)
   if (pollTimer) clearInterval(pollTimer)
-  ws.disconnect()
 })
 </script>
 
